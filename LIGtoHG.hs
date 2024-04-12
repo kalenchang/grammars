@@ -55,6 +55,9 @@ lookupLIGR :: Int -> [LIGRule] -> LIGRule
 lookupLIGR n (x:xs) = if label x == n then x else lookupLIGR n xs
 lookupLIGR _ [] = ligr0
 
+getrule :: Int -> LIGRule
+getrule x = lookupLIGR x ligrlist
+
 -- show ligr1 = "r1"
 
 data LITree = LIT LIGRule [LITree] deriving (Show, Eq)
@@ -228,31 +231,41 @@ rosify (PT b (TC m l d r)) = RT m (map rosify l) (rosify (PT b d)) (map rosify r
 -- contexthg EmptyContext = HGT E []
 -- contexthg (TC m l d r) = HGT (L m) ((map hgify l) ++ (contexthg d):(map hgify r))
 
-data HGRule = W1 | W2 | E | L Int deriving (Show, Eq)
---data HGRule = W1 VN VN VN VI | W2 VN VN | E VN | L Int VN | Lx Int deriving (Show, Eq)
+-- data HGRule = W1 | W2 | E | L Int deriving (Show, Eq)
+data HGRule = W1 VN VN VN VI | W2 VN VN | E VN | L Int VN | Lx Int deriving (Show, Eq)
 data HGTree = HGT HGRule [HGTree] deriving (Show, Eq)
 
 hgToTree :: HGTree -> Tree String
 hgToTree (HGT r l) = Node (show r) (map hgToTree l)
 
-printHg :: HGTree -> IO ()
-printHg t = putStrLn $ drawTree $ hgToTree t
+printHG :: HGTree -> IO ()
+printHG t = putStrLn $ drawTree $ hgToTree t
 
 hgify :: PTree (Int, SC) -> HGTree
-hgify (PT (b, s) EmptyContext) = HGT (L b) []
+hgify (PT (b, s) EmptyContext) = HGT (Lx b) []
     -- if W2 is followed by empty context, it is trivial; you can remove the W2 and E
-hgify (PT (b, s) c) = HGT W2 [contexthg c, HGT (L b) []]
+hgify (PT (b, s) c) = let x = (mother (getrule (conthead c))) in 
+                      let y = (mother (getrule b)) in
+                    HGT (W2 x y) [contexthg c y, HGT (Lx b) []]
+    -- distinction between L rules and Lx rules is structural; all buds are Lx.
+    -- do I ever need to reference what kind of rule each number is? eg Branch vs Leaf LIGrule?
+    -- I don't think so, assuming that the LIG tree was well formed, ie. leaves only at leaves
 
 emptycont :: TContext a -> Bool
 emptycont EmptyContext = True
 emptycont _ = False
 
-contexthg :: TContext (Int, SC) -> HGTree
-contexthg EmptyContext = HGT E []
-    -- perhaps write a case (similar to hgify above) where if W1 is followed by empty context, it is trivial and remove it
-contexthg (TC (m, Push i) l d r) = let (t,b) = splitcon i [] d in if emptycont t then HGT (L m) ((map hgify l) ++ (contexthg b):(map hgify r))
-    else HGT (L m) ((map hgify l) ++ (HGT W1 [contexthg t, contexthg b]):(map hgify r))
-contexthg (TC (m, s) l d r) = HGT (L m) ((map hgify l) ++ (contexthg d):(map hgify r))
+conthead :: TContext (Int, SC) -> Int
+conthead EmptyContext = 0
+conthead (TC (m,_) _ _ _) = m
+
+contexthg :: TContext (Int, SC) -> VN -> HGTree
+contexthg EmptyContext y = HGT (E y) []
+    -- write a case (similar to hgify above) where if W1 is followed by empty context, it is trivial and remove it
+contexthg (TC (m, Push i) l d r) y = let (t,b) = splitcon i [] d in if emptycont t then HGT (L m y) ((map hgify l) ++ (contexthg b y):(map hgify r))
+    else let x = (mother (getrule m)) in let z = (mother (getrule (conthead b))) in
+        HGT (L m y) ((map hgify l) ++ (HGT (W1 x y z i) [contexthg t z, contexthg b y]):(map hgify r))
+contexthg (TC (m, s) l d r) y = HGT (L m y) ((map hgify l) ++ (contexthg d y):(map hgify r))
 
 splitcon :: VI -> [VI] -> TContext (a, SC) -> (TContext (a, SC), TContext (a, SC))
 splitcon i is EmptyContext = (EmptyContext, EmptyContext)
