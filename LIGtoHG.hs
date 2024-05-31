@@ -32,7 +32,6 @@ newtype LIG = LIG ([VN], [VT], [VI], VN, [LIGRule])
 -- instance Show LIGRule where
 --     show (Branch _ _ _ _ _ x) = "rule" ++ (show x)
 
--- TODO: add record types
 -- list of rules
 ligr1, ligr2, ligr3, ligr4, ligr5, ligr6, ligr7, ligr8, ligr9, ligr10, ligr0 :: LIGRule
 ligr1 = Branch S [A] S [] (Push 1) 1
@@ -263,7 +262,7 @@ contexthg :: TContext (Int, SC) -> VN -> HGTree
 contexthg EmptyContext y = HGT (E y) []
     -- write a case (similar to hgify above) where if W1 is followed by empty context, it is trivial and remove it
 contexthg (TC (m, Push i) l d r) y = let (t,b) = splitcon i [] d in if emptycont t then HGT (L m y) ((map hgify l) ++ (contexthg b y):(map hgify r))
-    else let x = (mother (getrule m)) in let z = (mother (getrule (conthead b))) in
+    else let x = (mother (getrule (conthead t))) in let z = (mother (getrule (conthead b))) in
         HGT (L m y) ((map hgify l) ++ (HGT (W1 x y z i) [contexthg t z, contexthg b y]):(map hgify r))
 contexthg (TC (m, s) l d r) y = HGT (L m y) ((map hgify l) ++ (contexthg d y):(map hgify r))
 
@@ -305,3 +304,12 @@ ratree1 = RT (1, Push 1)
             []
 
 hgtree1 = hgify $ petrify2 ratree1
+
+-- strong equivalence translation
+-- start with an algebraic function which evaluates a derivation tree
+
+countnodes :: LITree -> Int
+countnodes (LIT m d) = 1 + sum (map countnodes d)
+
+measureHG :: LITree -> (LITree -> a) -> a
+measureHG = undefined
