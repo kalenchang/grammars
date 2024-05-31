@@ -9,4 +9,4 @@ type VT = String
 
 data HGRule = Concat {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], label :: Int} 
         | Wrap {mother :: VN, left :: VN, right :: VN, label :: Int}
-        | Leaf {mother :: VN, lefts :: [VT], rights :: [VT], label :: Int} deriving (Show, Eq)
+        | Leaf {mother :: VN, lterms :: [VT], rterms :: [VT], label :: Int} deriving (Show, Eq)
