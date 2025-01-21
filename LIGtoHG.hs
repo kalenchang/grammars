@@ -7,6 +7,7 @@ module LIGtoHG where
 import Prelude
 import Data.Maybe ( isJust, fromJust )
 import Data.Tree
+import TreePrint
 
 -- nonterminals; Vt = transitive verb, Ve = embedding verb, Tr = trace
 data VN = S | T | U | A | B | C | D deriving (Show, Eq)
@@ -26,27 +27,27 @@ data SC = NoChange | Push VI | Pop VI deriving (Show, Eq)
 -- data LIGRule = Branch VN [VN] VN [VN] SC Int | Leaf VN [VT] Int deriving (Show, Eq)
 
 data LIGRule = Branch {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], change :: SC, label :: Int} 
-        | Leaf {mother :: VN, terms :: [VT], label :: Int} deriving Eq
+        | Leaf {mother :: VN, terms :: VT, label :: Int} deriving Eq
 
 -- data LIGRule = Branch LIGBranchRule | Leaf LIGLeafRule deriving (Show, Eq)
 
 -- data LIGBranchRule = LIGBranchRule {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], change :: SC, label :: Int} deriving (Show, Eq)
 -- data LIGLeafRule = LIGLeafRule {mother :: VN, terms :: [VT], label :: Int} deriving (Show, Eq)
 
-insertSpaces :: Show a => [a] -> String
-insertSpaces [] = ""
-insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
+-- insertSpaces :: Show a => [a] -> String
+-- insertSpaces [] = ""
+-- insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
 
-insertSpaces' :: [String] -> String
-insertSpaces' [] = ""
-insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
+-- insertSpaces' :: [String] -> String
+-- insertSpaces' [] = ""
+-- insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
 
 instance Show LIGRule where
     show (Branch a b c d e f) = let (s1, s2) = case e of {NoChange -> ("[..] ->","[..]"); 
                                                           Push i -> ("[..] ->","[" ++ (show i) ++ "..]");
                                                           Pop i -> ("[" ++ (show i) ++ "..] ->","[..]")} in
             (show a) ++ s1 ++ (insertSpaces b) ++ ' ':(show c) ++ s2 ++ (insertSpaces d)
-    show (Leaf a b c) = (show a) ++ "[] ->" ++ (insertSpaces' b)
+    show (Leaf a b c) = (show a) ++ "[] -> " ++ b
 
 newtype LIG = LIG ([VN], [VT], [VI], VN, [LIGRule])
 
@@ -60,11 +61,11 @@ ligr2 = Branch S [] T [] NoChange 2
 ligr3 = Branch T [B] T [D] NoChange 3
 ligr4 = Branch T [] U [] NoChange 4
 ligr5 = Branch U [] U [C] (Pop 1) 5
-ligr6 = Leaf U [""] 6
-ligr7 = Leaf A ["a"] 7
-ligr8 = Leaf B ["b"] 8
-ligr9 = Leaf C ["c"] 9
-ligr10 = Leaf D ["d"] 10
+ligr6 = Leaf U "" 6
+ligr7 = Leaf A "a" 7
+ligr8 = Leaf B "b" 8
+ligr9 = Leaf C "c" 9
+ligr10 = Leaf D "d" 10
 -- dummy rule
 ligr0 = Branch S [] T [] NoChange 0
 
@@ -159,7 +160,7 @@ isSentence :: LITree -> Bool
 isSentence tree = produces tree S []
 
 yield :: LITree -> String
-yield (LIT (Leaf a b _) d) = concat b
+yield (LIT (Leaf a b _) d) = b
 yield (LIT (Branch a b c d e _) daughters) = concat (map yield daughters)
 
 -- show an LIG tree using only its rule label
@@ -174,7 +175,10 @@ printTree :: Tree String -> IO ()
 printTree t = putStrLn $ drawTree t
 
 -- doesn't show stack yet... how to add stack?
+-- technically Leaf nodes should not have any daughters, so t in the Leaf line should be []
+-- but also nothing in the data structure is stopping Leaf from having daughters
 ligtoCatTree :: LITree -> Tree String
+ligtoCatTree (LIT (Leaf a b _) t) = Node (show a ++ '\n':b) (map ligtoCatTree t)
 ligtoCatTree (LIT r t) = Node (show $ mother r) (map ligtoCatTree t)
 
 -- LIG for displaying

@@ -5,6 +5,7 @@ module HGtoLIG where
 
 import Prelude
 import Data.Tree
+import TreePrint
 
 -- nonterminals
 data VN = S | T | B | C | D deriving (Eq, Show)
@@ -15,20 +16,16 @@ type VT = String
 -- hg rules
 data HGRule = Concat {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], label :: Int} 
         | Wrap {mother :: VN, left :: VN, right :: VN, label :: Int}
-        | Leaf {mother :: VN, lterms :: [VT], rterms :: [VT], label :: Int} deriving Eq
+        | Leaf {mother :: VN, lterms :: VT, rterms :: VT, label :: Int} deriving Eq
 
-insertSpaces :: Show a => [a] -> String
-insertSpaces [] = ""
-insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
-
-insertSpaces' :: [String] -> String
-insertSpaces' [] = ""
-insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
+-- insertSpaces' :: [String] -> String
+-- insertSpaces' [] = ""
+-- insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
 
 instance Show HGRule where
     show (Concat a b c d e) = show a ++ " -C" ++ show (length b + 1) ++ "->" ++ insertSpaces b ++ ' ':(show c) ++ insertSpaces d
     show (Wrap a b c d) = show a ++ " -W-> " ++ show b ++ ' ':(show c)
-    show (Leaf a b c d) = show a ++ " -->" ++ insertSpaces' b ++ " ," ++ insertSpaces' c
+    show (Leaf a b c d) = show a ++ " --> " ++ b ++ " , " ++ c
 
 -- hg grammars
 newtype HG = HG ([VN], [VT], VN, [HGRule])
@@ -38,10 +35,10 @@ hgr1, hgr2, hgr3, hgr4, hgr5, hgr6, hgr7 :: HGRule
 hgr1 = Wrap S S C 1
 hgr2 = Concat S [] T [] 2
 hgr3 = Concat T [B] T [D] 3
-hgr4 = Leaf T ["x"] ["y"] 4
-hgr5 = Leaf B [] ["b"] 5
-hgr6 = Leaf C [] ["c"] 6
-hgr7 = Leaf D [] ["d"] 7
+hgr4 = Leaf T "x" "y" 4
+hgr5 = Leaf B "" "b" 5
+hgr6 = Leaf C "" "c" 6
+hgr7 = Leaf D "" "d" 7
 
 -- dummy rule
 hgr0 :: HGRule
@@ -76,7 +73,7 @@ tree1 = HGT hgr1 [
         ]
 
 yield :: HGTree -> (String, String)
-yield (HGT (Leaf _ l r _) _) = (concat l, concat r)
+yield (HGT (Leaf _ l r _) _) = (l, r)
 yield (HGT (Concat _ l d r _) subtrees) = hgconcat l subtrees
 yield (HGT (Wrap {}) [t1,t2]) = let (t1l, t1r) = yield t1 in let (t2l, t2r) = yield t2 in (t1l ++ t2l, t2r ++ t1r)
 
@@ -87,32 +84,18 @@ hgconcat :: [a] -> [HGTree] -> (String, String)
 hgconcat [] (t:ts) = let (d1, d2) = yield t in (d1, d2 ++ concat (map (combine . yield) ts))
 hgconcat (l:ls) (t:ts) = let (s1, s2) = hgconcat ls ts in (combine (yield t) ++ s1, s2)
 
-printTree :: Tree String -> IO ()
-printTree t = putStrLn $ drawTree t
-
 -- show an LIG tree using only its rule label
-hgToLabelTree :: HGTree -> Tree String
-hgToLabelTree (HGT r t) = Node (show $ label r) (map hgToLabelTree t)
+hgtoLabelTree :: HGTree -> Tree String
+hgtoLabelTree (HGT r t) = Node (show $ label r) (map hgtoLabelTree t)
 
 -- show an LIG tree using the full rule
-hgToRuleTree :: HGTree -> Tree String
-hgToRuleTree (HGT r t) = Node (show r) (map hgToRuleTree t)
+hgtoRuleTree :: HGTree -> Tree String
+hgtoRuleTree (HGT r t) = Node (show r) (map hgtoRuleTree t)
 
 -- doesn't check for correctness, only takes mother node
-hgToCatTree :: HGTree -> Tree String
-hgToCatTree (HGT r t) = Node (show $ mother r) (map hgToCatTree t)
-
--- writes the LaTeX "forest" code to display the tree
-latexTree :: Tree String -> IO ()
-latexTree x = putStrLn $ unlines $ ("\\begin{forest}":(drawLatex x) ++ ["\\end{forest}"])
-
-drawLatex :: Tree String -> [String]
-drawLatex (Node x []) = lines ("[{"++x++"}]")
-drawLatex (Node x ts0) = lines ("[{"++x++"}") ++ drawSubTrees ts0 ++ ["]"]
-  where
-    drawSubTrees [] = []
-    drawSubTrees (t:ts) =
-        zipWith (++) (repeat "    ") (drawLatex t) ++ drawSubTrees ts
+hgtoCatTree :: HGTree -> Tree String
+hgtoCatTree (HGT (Leaf a b c _) t) = Node (show a ++ '\n':b ++ ',':c) (map hgtoCatTree t)
+hgtoCatTree (HGT r t) = Node (show $ mother r) (map hgtoCatTree t)
 
 -- HG derivations with only numbers
 -- Cc Int:subscript index/designated daughter Int:rule number
@@ -196,7 +179,7 @@ ligify (HGNT (Wp n) [l, r]) = LIT (HW n) [subtail (ligify l) (LIT Pop [ligify r]
 showLIGR :: LIGR -> String
 showLIGR (HC a b) = undefined
 showLIGR (HW a) = undefined
-showLIGR (HL a) = let hgr = gethgrule a in (show $ mother hgr) ++ "[] ->" ++ (insertSpaces' (lterms hgr ++ rterms hgr))
+showLIGR (HL a) = let hgr = gethgrule a in (show $ mother hgr) ++ "[] -> " ++ lterms hgr ++ " " ++ rterms hgr
 showLIGR (Pop) = undefined
 showLIGR (Emp) = "@[] -> "
 
