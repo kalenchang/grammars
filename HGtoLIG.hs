@@ -15,7 +15,20 @@ type VT = String
 -- hg rules
 data HGRule = Concat {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], label :: Int} 
         | Wrap {mother :: VN, left :: VN, right :: VN, label :: Int}
-        | Leaf {mother :: VN, lterms :: [VT], rterms :: [VT], label :: Int} deriving (Show, Eq)
+        | Leaf {mother :: VN, lterms :: [VT], rterms :: [VT], label :: Int} deriving Eq
+
+insertSpaces :: Show a => [a] -> String
+insertSpaces [] = ""
+insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
+
+insertSpaces' :: [String] -> String
+insertSpaces' [] = ""
+insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
+
+instance Show HGRule where
+    show (Concat a b c d e) = show a ++ " -C" ++ show (length b + 1) ++ "->" ++ insertSpaces b ++ ' ':(show c) ++ insertSpaces d
+    show (Wrap a b c d) = show a ++ " -W-> " ++ show b ++ ' ':(show c)
+    show (Leaf a b c d) = show a ++ " -->" ++ insertSpaces' b ++ " ," ++ insertSpaces' c
 
 -- hg grammars
 newtype HG = HG ([VN], [VT], VN, [HGRule])
@@ -74,6 +87,32 @@ hgconcat :: [a] -> [HGTree] -> (String, String)
 hgconcat [] (t:ts) = let (d1, d2) = yield t in (d1, d2 ++ concat (map (combine . yield) ts))
 hgconcat (l:ls) (t:ts) = let (s1, s2) = hgconcat ls ts in (combine (yield t) ++ s1, s2)
 
+printTree :: Tree String -> IO ()
+printTree t = putStrLn $ drawTree t
+
+-- show an LIG tree using only its rule label
+hgToLabelTree :: HGTree -> Tree String
+hgToLabelTree (HGT r t) = Node (show $ label r) (map hgToLabelTree t)
+
+-- show an LIG tree using the full rule
+hgToRuleTree :: HGTree -> Tree String
+hgToRuleTree (HGT r t) = Node (show r) (map hgToRuleTree t)
+
+-- doesn't check for correctness, only takes mother node
+hgToCatTree :: HGTree -> Tree String
+hgToCatTree (HGT r t) = Node (show $ mother r) (map hgToCatTree t)
+
+-- writes the LaTeX "forest" code to display the tree
+latexTree :: Tree String -> IO ()
+latexTree x = putStrLn $ unlines $ ("\\begin{forest}":(drawLatex x) ++ ["\\end{forest}"])
+
+drawLatex :: Tree String -> [String]
+drawLatex (Node x []) = lines ("[{"++x++"}]")
+drawLatex (Node x ts0) = lines ("[{"++x++"}") ++ drawSubTrees ts0 ++ ["]"]
+  where
+    drawSubTrees [] = []
+    drawSubTrees (t:ts) =
+        zipWith (++) (repeat "    ") (drawLatex t) ++ drawSubTrees ts
 
 -- HG derivations with only numbers
 -- Cc Int:subscript index/designated daughter Int:rule number
@@ -125,7 +164,6 @@ makeHGT (HGNT (Wp n) subtrees) = HGT (gethgrule n) (map makeHGT subtrees)
 makeHGT (HGNT (Cc _ n) subtrees) = HGT (gethgrule n) (map makeHGT subtrees)
 makeHGT (HGNT (Lx n) subtrees) = HGT (gethgrule n) (map makeHGT subtrees)
 
-
 hgToTree :: HGNT -> Tree String
 hgToTree (HGNT r l) = Node (show r) (map hgToTree l)
 
@@ -133,6 +171,7 @@ printHGT :: HGNT -> IO ()
 printHGT t = putStrLn $ drawTree $ hgToTree t
 
 
+----------------------------------------
 -- LIG section
 
 -- three kinds of rules in the new LIG
@@ -148,10 +187,25 @@ ligToTree (LIT r l) = Node (show r) (map ligToTree l)
 printLIGT :: LITree -> IO ()
 printLIGT t = putStrLn $ drawTree $ ligToTree t
 
+-- ligate
 ligify :: HGNT -> LITree
 ligify (HGNT (Lx n) subtrees) = LIT (HL n) [LIT Emp []]
 ligify (HGNT (Cc m n) subtrees) = LIT (HC m n) (map ligify subtrees)
 ligify (HGNT (Wp n) [l, r]) = LIT (HW n) [subtail (ligify l) (LIT Pop [ligify r])]
+
+showLIGR :: LIGR -> String
+showLIGR (HC a b) = undefined
+showLIGR (HW a) = undefined
+showLIGR (HL a) = let hgr = gethgrule a in (show $ mother hgr) ++ "[] ->" ++ (insertSpaces' (lterms hgr ++ rterms hgr))
+showLIGR (Pop) = undefined
+showLIGR (Emp) = "@[] -> "
+
+-- instance Show LIGRule where
+--     show (Branch a b c d e f) = let (s1, s2) = case e of {NoChange -> ("[..] ->","[..]"); 
+--                                                           Push i -> ("[..] ->","[" ++ (show i) ++ "..]");
+--                                                           Pop i -> ("[" ++ (show i) ++ "..] ->","[..]")} in
+--             (show a) ++ s1 ++ (insertSpaces b) ++ ' ':(show c) ++ s2 ++ (insertSpaces d)
+--     show (Leaf a b c) = (show a) ++ "[] ->" ++ (insertSpaces' b)
 
 -- first is the one whose tail you are looking for; second is the tree to replace the tail
 subtail :: LITree -> LITree -> LITree

@@ -15,7 +15,7 @@ data VN = S | T | U | A | B | C | D deriving (Show, Eq)
 type VT = String
 
 -- indices
-type VI = Integer
+type VI = Int
 
 -- stack change
 data SC = NoChange | Push VI | Pop VI deriving (Show, Eq)
@@ -24,8 +24,29 @@ data SC = NoChange | Push VI | Pop VI deriving (Show, Eq)
 -- Branch: 1 rewrites as 2 3 4, where 3 is the distinguished daughter, with stack change 5
 -- Leaf: 1 rewrites as 2
 -- data LIGRule = Branch VN [VN] VN [VN] SC Int | Leaf VN [VT] Int deriving (Show, Eq)
+
 data LIGRule = Branch {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], change :: SC, label :: Int} 
-        | Leaf {mother :: VN, terms :: [VT], label :: Int} deriving (Show, Eq)
+        | Leaf {mother :: VN, terms :: [VT], label :: Int} deriving Eq
+
+-- data LIGRule = Branch LIGBranchRule | Leaf LIGLeafRule deriving (Show, Eq)
+
+-- data LIGBranchRule = LIGBranchRule {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], change :: SC, label :: Int} deriving (Show, Eq)
+-- data LIGLeafRule = LIGLeafRule {mother :: VN, terms :: [VT], label :: Int} deriving (Show, Eq)
+
+insertSpaces :: Show a => [a] -> String
+insertSpaces [] = ""
+insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
+
+insertSpaces' :: [String] -> String
+insertSpaces' [] = ""
+insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
+
+instance Show LIGRule where
+    show (Branch a b c d e f) = let (s1, s2) = case e of {NoChange -> ("[..] ->","[..]"); 
+                                                          Push i -> ("[..] ->","[" ++ (show i) ++ "..]");
+                                                          Pop i -> ("[" ++ (show i) ++ "..] ->","[..]")} in
+            (show a) ++ s1 ++ (insertSpaces b) ++ ' ':(show c) ++ s2 ++ (insertSpaces d)
+    show (Leaf a b c) = (show a) ++ "[] ->" ++ (insertSpaces' b)
 
 newtype LIG = LIG ([VN], [VT], [VI], VN, [LIGRule])
 
@@ -57,10 +78,12 @@ lookupLIGR _ [] = ligr0
 getrule :: Int -> LIGRule
 getrule x = lookupLIGR x ligrlist
 
+-- should I implement show to be something like:
 -- show ligr1 = "r1"
 
 data LITree = LIT LIGRule [LITree] deriving (Show, Eq)
 
+-- changeStack tries to do the stackchange on the given stack, returns nothing if not possible
 changeStack :: SC -> Maybe [VI] -> Maybe [VI]
 changeStack _ Nothing = Nothing
 changeStack NoChange s = s
@@ -68,7 +91,11 @@ changeStack (Push i) (Just s) = Just (i:s)
 changeStack (Pop i) (Just []) = Nothing
 changeStack (Pop i) (Just (x:s)) = if x == i then Just s else Nothing
 
-stackLister :: [a] -> [a] -> [VI] -> [[VI]]
+-- given 3 arguments, l, r, s, where s is a list of b
+-- returns a list of lists of b, where s is the len(l)+1th item of the list,
+-- with len(l) and len(r) empty stacks to the left and right of s
+-- ADD PURPOSE HERE
+stackLister :: [a] -> [a] -> [b] -> [[b]]
 stackLister l r s = map (\x -> []) l ++ s:(map (\x -> []) r)
 
 -- check whether a tree produces the given category
@@ -134,6 +161,21 @@ isSentence tree = produces tree S []
 yield :: LITree -> String
 yield (LIT (Leaf a b _) d) = concat b
 yield (LIT (Branch a b c d e _) daughters) = concat (map yield daughters)
+
+-- show an LIG tree using only its rule label
+ligtoLabelTree :: LITree -> Tree String
+ligtoLabelTree (LIT r t) = Node (show $ label r) (map ligtoLabelTree t)
+
+-- show an LIG tree using the full rule
+ligtoRuleTree :: LITree -> Tree String
+ligtoRuleTree (LIT r t) = Node (show r) (map ligtoRuleTree t)
+
+printTree :: Tree String -> IO ()
+printTree t = putStrLn $ drawTree t
+
+-- doesn't show stack yet... how to add stack?
+ligtoCatTree :: LITree -> Tree String
+ligtoCatTree (LIT r t) = Node (show $ mother r) (map ligtoCatTree t)
 
 -- LIG for displaying
 newtype LIGRN = R Integer deriving (Show, Eq)
