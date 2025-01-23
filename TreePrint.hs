@@ -20,6 +20,7 @@ latexTree x = putStrLn $ unlines $ ("\\begin{forest}":(drawLatex x) ++ ["\\end{f
 latexNode :: String -> String
 latexNode ('\n':xs) = "\\\\" ++ latexNode xs
 latexNode (',':xs) = "\\hgs " ++ latexNode xs
+latexNode ('-':'>':xs) = "\\ra " ++ latexNode xs
 latexNode (x:xs) = x : latexNode xs
 latexNode "" = ""
 
