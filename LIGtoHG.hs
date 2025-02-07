@@ -8,240 +8,8 @@ import Prelude
 import Data.Maybe ( isJust, fromJust )
 import Data.Tree
 import TreePrint
-
--- nonterminals; Vt = transitive verb, Ve = embedding verb, Tr = trace
-data VN = S | T | U | A | B | C | D deriving (Show, Eq)
-
--- terminals
-type VT = String
-
--- indices
-type VI = Int
-
--- stack change
-data SC = NoChange | Push VI | Pop VI deriving (Show, Eq)
-
--- two kinds of LIG rules: Branch node or a Leaf node
--- Branch: 1 rewrites as 2 3 4, where 3 is the distinguished daughter, with stack change 5
--- Leaf: 1 rewrites as 2
--- data LIGRule = Branch VN [VN] VN [VN] SC Int | Leaf VN [VT] Int deriving (Show, Eq)
-
-data LIGRule = Branch {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], change :: SC, label :: Int} 
-        | Leaf {mother :: VN, terms :: VT, label :: Int} deriving Eq
-
--- i'm starting to feel like branch rules and leaf rules should be their own kinds of rules... but idk
--- data LIGRule = Branch LIGBranchRule | Leaf LIGLeafRule deriving (Show, Eq)
-
--- data LIGBranchRule = LIGBranchRule {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], change :: SC, label :: Int} deriving (Show, Eq)
--- data LIGLeafRule = LIGLeafRule {mother :: VN, terms :: [VT], label :: Int} deriving (Show, Eq)
-
--- insertSpaces :: Show a => [a] -> String
--- insertSpaces [] = ""
--- insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
-
--- insertSpaces' :: [String] -> String
--- insertSpaces' [] = ""
--- insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
-
-instance Show LIGRule where
-    show (Branch a b c d e f) = let (s1, s2) = case e of {NoChange -> ("[..] ->","[..]"); 
-                                                          Push i -> ("[..] ->","[" ++ (show i) ++ "..]");
-                                                          Pop i -> ("[" ++ (show i) ++ "..] ->","[..]")} in
-            (show a) ++ s1 ++ (insertSpaces b) ++ ' ':(show c) ++ s2 ++ (insertSpaces d)
-    show (Leaf a b c) = (show a) ++ "[] -> " ++ b
-
-newtype LIG = LIG ([VN], [VT], [VI], VN, [LIGRule])
-
--- list of rules
-ligr1, ligr2, ligr3, ligr4, ligr5, ligr6, ligr7, ligr8, ligr9, ligr10, ligr0 :: LIGRule
-ligr1 = Branch S [A] S [] (Push 1) 1
-ligr2 = Branch S [] T [] NoChange 2 
-ligr3 = Branch T [B] T [D] NoChange 3
-ligr4 = Branch T [] U [] NoChange 4
-ligr5 = Branch U [] U [C] (Pop 1) 5
-ligr6 = Leaf U "" 6
-ligr7 = Leaf A "a" 7
-ligr8 = Leaf B "b" 8
-ligr9 = Leaf C "c" 9
-ligr10 = Leaf D "d" 10
--- dummy rule
-ligr0 = Branch S [] T [] NoChange 0
-
-ligrlist :: [LIGRule]
-ligrlist = [ligr1, ligr2, ligr3, ligr4, ligr5, ligr6, ligr7, ligr8, ligr9, ligr10]
-
-lookupLIGR :: Int -> [LIGRule] -> LIGRule
-lookupLIGR n (x:xs) = if label x == n then x else lookupLIGR n xs
-lookupLIGR _ [] = ligr0
-
-getrule :: Int -> LIGRule
-getrule x = lookupLIGR x ligrlist
-
-data LITree = LIT LIGRule [LITree] deriving (Show, Eq)
--- is it possible/better to just use Tree LIGRule?
-
--- changeStack tries to do the stackchange on the given stack, returns Nothing if not possible
--- changeStack assumes you are working top down, so a Push i rule has the designate daughter's stack
---   one longer than the mother's
-changeStack :: SC -> Maybe [VI] -> Maybe [VI]
-changeStack _ Nothing = Nothing
-changeStack NoChange s = s
-changeStack (Push i) (Just s) = Just (i:s)
-changeStack (Pop i) (Just []) = Nothing
-changeStack (Pop i) (Just (x:s)) = if x == i then Just s else Nothing
-
--- stackUp does the same thing as changeStack, except working bottom up
-stackUp :: SC -> Maybe [VI] -> Maybe [VI]
-stackUp _ Nothing = Nothing
-stackUp NoChange s = s
-stackUp (Pop i) (Just s) = Just (i:s)
-stackUp (Push i) (Just []) = Nothing
-stackUp (Push i) (Just (x:s)) = if x == i then Just s else Nothing
-
--- given 3 arguments, l, r, s, where s is a list of b
--- returns a list of lists of b, where s is the len(l)+1th item of the list,
--- with len(l) and len(r) empty stacks to the left and right of s
--- use case: pass the stack to the designated daughter, and all other daughters get empty stacks
-stackLister :: [a] -> [a] -> [b] -> [[b]]
-stackLister l r s = map (\x -> []) l ++ s:(map (\x -> []) r)
-
--- check whether a tree produces the given category
--- still need to check whether stack clears
-produces :: LITree -> VN -> [VI] -> Bool
-produces (LIT (Branch a b c d e _) daughters) nt stack = let newStack = changeStack e (Just stack) in
-    a == nt && isJust newStack && and (zipWith3 produces daughters (b ++ c:d) (stackLister b d (fromJust newStack)))
-produces (LIT (Leaf a b _) daughters) nt stack = a == nt && null stack && null daughters
-    -- ignore b (list of terminals) since it doesn't affect whether derivation is valid
--- produces _ _ _ = False
-    -- adding a catchall (for now)... unsure if needed
-
-extract :: Int -> [a] -> (a,[a])
-extract _ [] = undefined
-extract i (x:xs) = removeIndex i (x,xs)
-    where
-        -- removeIndex :: Int -> (a,[a]) -> (a,[a])
-        removeIndex _ (x,[]) = (x,[])
-        removeIndex i (x,y:ys) = if i == 0 then (x,y:ys) else let (z,zs) = (removeIndex (i-1) (y,ys)) in (z, x:zs)
-
--- another alternative to produces: category :: LITree -> Maybe (VN, [VI])
--- category of a tree is either a NT + stack, or it's nothing if the tree is invalid
-category :: LITree -> Maybe (VN, [VI])
-category (LIT (Leaf a _ _) daughters) = if null daughters then Just (a, []) else Nothing
-category (LIT (Branch a b c d e _) daughters) = if correctDaughters && isJust newStack then Just (a, fromJust newStack) else Nothing
-    where
-        (desig,rest) = extract (length b) daughters
-        correctDaughters = and (zipWith checksides rest (b ++ d)) && checkmiddle 
-        -- dt = daughter, n = nonterminal, s = stack
-        checksides = \dt -> \n -> case category dt of {Just (x1, x2) -> x1 == n && x2 == []; Nothing -> False}
-        checkmiddle = case category desig of {Just (x1, x2) -> x1 == c; Nothing -> False}
-        newStack = case category desig of {Just (x1, x2) -> stackUp e (Just x2); Nothing -> Nothing}
-
--- mytree1 :: LITree
--- mytree1 = Bin ligr4 (Lef ligr7) (Bin ligr1 (Lef ligr8) (Lef ligr7))
-
-tree1 :: LITree
-tree1 = LIT ligr2 [LIT ligr4 [LIT ligr6 []]]
-
-tree2 :: LITree
-tree2 = LIT ligr1 [
-            LIT ligr7 [],
-            LIT ligr2 [
-                LIT ligr3 [
-                    LIT ligr8 [],
-                    LIT ligr4 [
-                        LIT ligr5 [
-                            LIT ligr6 [],
-                            LIT ligr9 []
-                        ]
-                    ],
-                    LIT ligr10 []
-                ]
-            ]
-        ]
-
--- part of tree2 that should be S[1]
-tree2' = LIT ligr2 [
-            LIT ligr3 [
-                LIT ligr8 [],
-                LIT ligr4 [
-                    LIT ligr5 [
-                        LIT ligr6 [],
-                        LIT ligr9 []
-                    ]
-                ],
-                LIT ligr10 []
-            ]
-        ]
-
-tree3 :: LITree
-tree3 = LIT ligr1 [
-            LIT ligr7 [],
-            LIT ligr2 [
-                LIT ligr4 [
-                    LIT ligr5 [
-                        LIT ligr6 [],
-                        LIT ligr9 []
-                    ]
-                ]
-            ]
-        ]
-
-tree4 :: LITree
-tree4 = LIT ligr2 [
-            LIT ligr3 [
-                LIT ligr8 [],
-                LIT ligr4 [
-                    LIT ligr6 []
-                ],
-                LIT ligr10 []
-            ]
-        ]
-
-isSentence :: LITree -> Bool
-isSentence tree = produces tree S []
-
-yield :: LITree -> String
-yield (LIT (Leaf a b _) d) = b
-yield (LIT (Branch a b c d e _) daughters) = concat (map yield daughters)
-
--- show an LIG tree using only its rule label
-ligtoLabelTree :: LITree -> Tree String
-ligtoLabelTree (LIT r t) = Node (show $ label r) (map ligtoLabelTree t)
-
--- show an LIG tree using the full rule
-ligtoRuleTree :: LITree -> Tree String
-ligtoRuleTree (LIT r t) = Node (show r) (map ligtoRuleTree t)
-
--- printTree :: Tree String -> IO ()
--- printTree t = putStrLn $ drawTree t
-
--- doesn't show stack; only shows the left side of each rule as the node
--- technically Leaf nodes should not have any daughters, so t in the Leaf line should be []
--- but also nothing in the data structure is stopping Leaf from having daughters
-ligtoLeftsTree :: LITree -> Tree String
-ligtoLeftsTree (LIT (Leaf a b _) t) = Node (show a ++ '\n':b) (map ligtoLeftsTree t)
-ligtoLeftsTree (LIT r t) = Node (show $ mother r) (map ligtoLeftsTree t)
-
--- shows the category of the subtree as indicated by the `category' function
--- ought to implement some kind of memoization so it does not need to calculate the subtree's categories multiple times
-ligtoCatTree :: LITree -> Tree String
-ligtoCatTree (LIT r t) = Node (case category (LIT r t) of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}) (map ligtoCatTree t)
-
--- LIG for displaying
-newtype LIGRN = R Integer deriving (Show, Eq)
-
-data LITN = LITN LIGRN [LITN] deriving (Show, Eq)
-
-treen4 :: LITN
-treen4 = LITN (R 2) [
-            LITN (R 3) [
-                LITN (R 8) [],
-                LITN (R 4) [
-                    LITN (R 6) []
-                ],
-                LITN (R 10) []
-            ]
-        ]
+import LIG
+import HG
 
 
 -----------------------------------------
@@ -272,7 +40,7 @@ printRose t = putStrLn $ drawTree $ roseToTree t
 -- convert LITrees into RoseTrees, i.e. [lefts] center [rights]
 -- ideally Leaf rules would be at and only at leaf nodes, but currently no way to guarantee that...
 -- anyone can give a maliciously bad derivation...
-parseRose :: LITree -> RoseTree LIGRule
+parseRose :: LITree nts ts ind -> RoseTree (LIGRule nts ts ind)
 parseRose (LIT r []) = Bud r
 parseRose (LIT r@(Leaf a b _) t) = Bud r
 parseRose (LIT r@(Branch a b c d _ _) t) = let (ls,c:rs) = splitat (length b) t in RT r (map parseRose ls) (parseRose c) (map parseRose rs)
@@ -337,9 +105,36 @@ rosify (PT b (TC m l d r)) = RT m (map rosify l) (rosify (PT b d)) (map rosify r
 -- contexthg EmptyContext = HGT E []
 -- contexthg (TC m l d r) = HGT (L m) ((map hgify l) ++ (contexthg d):(map hgify r))
 
--- data HGRule = W1 | W2 | E | L Int deriving (Show, Eq)
-data HGRule = W1 VN VN VN VI | W2 VN VN | E VN | L LIGRule VN | Lx LIGRule deriving Eq
-instance Show HGRule where
+data HGTransNT nts ind = Sng nts | Trp nts nts (Maybe ind) deriving Eq
+
+instance (Show nts, Show ind) => Show (HGTransNT nts ind) where
+    show (Sng a) = show a
+    show (Trp a b e) = '(':(show a) ++ ',':(show b) ++ ',':(case e of {Just i -> show i; Nothing -> "0"}) ++ ")"
+
+-- data HGRule nts ts = W1 nts nts nts VI | W2 nts nts | E nts | L (LIGRule nts ts) nts | Lx (LIGRule nts ts) deriving Eq
+
+-- constructors for HGRules that come from an LIG
+makeW1rule :: nts -> nts -> nts -> ind -> HGRule (HGTransNT nts ind) ts
+makeW1rule a b d e = Wrap (Trp a d (Just e)) (Trp a b Nothing) (Trp b d (Just e)) 1 -- labels will all be 1 for now...
+
+makeW2rule :: nts -> nts -> HGRule (HGTransNT nts ind) ts
+makeW2rule a b = Wrap (Sng a) (Trp a b Nothing) (Sng b) 2
+
+makeErule :: nts -> HGRule (HGTransNT nts ind) ts
+makeErule a = Leafh (Trp a a Nothing) [] [] 3
+
+makeLrule :: (LIGRule nts ts ind) -> nts -> HGRule (HGTransNT nts ind) ts
+makeLrule (Branch a b c d e f) g = let (k, l) = case e of {NoChange -> (Nothing, Nothing); 
+                                                            Push i -> (Nothing, Just i);
+                                                            Pop i -> (Just i, Nothing)} in
+                Concat (Trp a g k) (map Sng b) (Trp c g l) (map Sng d) f
+
+makeLxrule :: (LIGRule nts ts ind) -> HGRule (HGTransNT nts ind) ts
+makeLxrule (Leaf a b c) = Leafh (Sng a) [] b c
+
+-- old show code; the show function should fall out from the rule constructors + showing those
+{-
+instance (Show nts, Show ts) => Show (HGRule nts ts) where
     show (W1 a b d e) = '(':(show a) ++ ',':(show d) ++ ',':(show e) ++ ") -W-> (" ++ (show a)++ ',':(show b) ++ ",0) (" ++ (show b) ++ ',':(show d) ++ ',':(show e) ++ ")"
     show (W2 a b) = (show a) ++ " -W-> (" ++ (show a) ++ ',':(show b) ++ ",0) " ++ (show b)
     show (E a) = '(':(show a) ++ ',':(show a) ++ ",0) --> 0 , 0"
@@ -348,22 +143,22 @@ instance Show HGRule where
                                                           Push i -> ("0) -C" ++ j ++ "->",(show i) ++ ")");
                                                           Pop i -> ((show i) ++ ") -C" ++ j ++ "->","0)")} in
             '(':(show a) ++ ',':(show g) ++ ',':k ++ (insertSpaces b) ++ " (" ++ (show c) ++ ',':(show g) ++ ',':l ++ (insertSpaces d)
-    show (Lx r@(Leaf a b c)) = (show a) ++ "[] --> 0 , " ++ b
+    show (Lx r@(Leaf a b c)) = (show a) ++ " --> 0 , " ++ show b
+-}
 
-data HGTree = HGT HGRule [HGTree] deriving (Show, Eq)
 
-hgToTree :: HGTree -> Tree String
-hgToTree (HGT r l) = Node (show r) (map hgToTree l)
+-- TODO: define category, yield of a tree, then define functions to convert
+-- maybe just define a fold function (HGTree -> String) -> HGTree -> Tree String
 
-printHG :: HGTree -> IO ()
-printHG t = putStrLn $ drawTree $ hgToTree t
+printHG :: (Show nts, Show ts) => HGTree nts ts -> IO ()
+printHG t = putStrLn $ drawTree $ hgtoRuleTree t
 
-hgify :: PTree LIGRule -> HGTree
-hgify (PT r EmptyContext) = HGT (Lx r) []
+hgify :: Eq ind => PTree (LIGRule nts ts ind) -> HGTree (HGTransNT nts ind) ts
+hgify (PT r EmptyContext) = HGT (makeLxrule r) []
     -- if W2 is followed by empty context, it is trivial; you can remove the W2 and E
 hgify (PT r cont) = let x = (mother $ conthead cont) in 
                       let y = (mother r) in
-                    HGT (W2 x y) [contexthg cont y, HGT (Lx r) []]
+                    HGT (makeW2rule x y) [contexthg cont y, HGT (makeLxrule r) []]
     -- distinction between L rules and Lx rules is structural; all buds are Lx.
     -- do I ever need to reference what kind of rule each number is? eg Branch vs Leaf LIGrule?
     -- I don't think so, assuming that the LIG tree was well formed, ie. leaves only at leaves
@@ -372,23 +167,23 @@ emptycont :: TContext a -> Bool
 emptycont EmptyContext = True
 emptycont _ = False
 
-conthead :: TContext LIGRule -> LIGRule
-conthead EmptyContext = ligr0
+conthead :: TContext (LIGRule nts ts ind) -> LIGRule nts ts ind
+conthead EmptyContext = undefined
 conthead (TC m _ _ _) = m
 
-contexthg :: TContext LIGRule -> VN -> HGTree
-contexthg EmptyContext y = HGT (E y) []
+contexthg :: (Eq ind) => TContext (LIGRule nts ts ind) -> nts -> HGTree (HGTransNT nts ind) ts
+contexthg EmptyContext y = HGT (makeErule y) []
     -- write a case (similar to hgify above) where if W1 is followed by empty context, it is trivial and remove it
 contexthg (TC m@(Branch _ _ _ _ (Push i) _) l d r) y = let (t,b) = splitcon i [] d in 
     if emptycont t then 
-        HGT (L m y) ((map hgify l) ++ (contexthg b y):(map hgify r))
+        HGT (makeLrule m y) ((map hgify l) ++ (contexthg b y):(map hgify r))
     else 
         let x = mother $ conthead t 
             z = mother $ conthead b
-        in HGT (L m y) ((map hgify l) ++ (HGT (W1 x y z i) [contexthg t z, contexthg b y]):(map hgify r))
-contexthg (TC m l d r) y = HGT (L m y) ((map hgify l) ++ (contexthg d y):(map hgify r))
+        in HGT (makeLrule m y) ((map hgify l) ++ (HGT (makeW1rule x y z i) [contexthg t z, contexthg b y]):(map hgify r))
+contexthg (TC m l d r) y = HGT (makeLrule m y) ((map hgify l) ++ (contexthg d y):(map hgify r))
 
-splitcon :: VI -> [VI] -> TContext LIGRule -> (TContext LIGRule, TContext LIGRule)
+splitcon :: Eq ind => ind -> [ind] -> TContext (LIGRule nts ts ind) -> (TContext (LIGRule nts ts ind), TContext (LIGRule nts ts ind))
 splitcon i is EmptyContext = (EmptyContext, EmptyContext)
 splitcon i is (TC m l d r) = let s = change m in
                                 if null is && s == Pop i then (EmptyContext, (TC m l d r)) else
@@ -404,7 +199,7 @@ splitter i [] = ([],[])
 splitter i (x:xs) = if x == i then ([], x:xs) else
                     let (a, b) = splitter i xs in (x:a, b)
 
-ratree1 :: RoseTree (Int, SC)
+ratree1 :: RoseTree (Int, SC VI)
 ratree1 = RT (1, Push 1) 
             [Bud (7, NoChange)]
             (RT (2, NoChange)
@@ -426,7 +221,7 @@ ratree1 = RT (1, Push 1)
             )
             []
 
-ligtohg :: LITree -> HGTree
+ligtohg :: Eq ind => LITree nts ts ind -> HGTree (HGTransNT nts ind) ts
 ligtohg = hgify . petrify . parseRose
 
 -- eg, try:
@@ -436,8 +231,162 @@ ligtohg = hgify . petrify . parseRose
 -- strong equivalence translation
 -- start with an algebraic function which evaluates a derivation tree
 
-countnodes :: LITree -> Int
+countnodes :: LITree nts ts ind -> Int
 countnodes (LIT m d) = 1 + sum (map countnodes d)
 
-measureHG :: LITree -> (LITree -> a) -> a
+measureHG :: LITree nts ts ind -> (LITree nts ts ind -> a) -> a
 measureHG = undefined
+
+
+-------------------------------
+-- grammar 1: w v wR vR
+
+g1r1 = Branch S [A] S [] (Push 1) 101
+g1r2 = Branch S [C] S [] (Push 3) 102
+g1r3 = Branch S [] T [] (NoChange) 103
+g1r4 = Branch T [B] T [B] (NoChange) 104
+g1r5 = Branch T [D] T [D] (NoChange) 105
+g1r6 = Branch T [] U [] (NoChange) 106
+g1r7 = Branch U [A] U [] (Pop 1) 107
+g1r8 = Branch U [C] U [] (Pop 3) 108
+g1r9 = Leaf U [] 109
+g1r10 = Leaf A ["a"] 110
+g1r11 = Leaf B ["b"] 111
+g1r12 = Leaf C ["c"] 112
+g1r13 = Leaf D ["d"] 113
+
+-- acc bdb cca bdb
+g1t1 =  LIT g1r1 [
+            LIT g1r10 [],
+            LIT g1r2 [
+                LIT g1r12 [],
+                LIT g1r2 [
+                    LIT g1r12 [],
+                    LIT g1r3 [
+                        LIT g1r4 [
+                            LIT g1r11 [],
+                            LIT g1r5 [
+                                LIT g1r13 [],
+                                LIT g1r4 [
+                                    LIT g1r11 [],
+                                    LIT g1r6 [
+                                        LIT g1r8 [
+                                            LIT g1r12 [],
+                                            LIT g1r8 [
+                                                LIT g1r12 [],
+                                                LIT g1r7 [
+                                                    LIT g1r10 [],
+                                                    LIT g1r9 []
+                                                ]
+                                            ]
+                                        ]
+                                    ],
+                                    LIT g1r11 []
+                                ],
+                                LIT g1r13 []
+                            ],
+                            LIT g1r11 []
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+g1t2 =  LIT g1r1 [
+            LIT g1r10 [],
+            LIT g1r2 [
+                LIT g1r12 [],
+                LIT g1r2 [
+                    LIT g1r12 [],
+                    LIT g1r3 [
+                        LIT g1r4 [
+                            LIT g1r11 [],
+                            LIT g1r4 [
+                                LIT g1r11 [],
+                                LIT g1r5 [
+                                    LIT g1r13 [],
+                                    LIT g1r5 [
+                                        LIT g1r13 [],
+                                        LIT g1r6 [
+                                            LIT g1r8 [
+                                                LIT g1r12 [],
+                                                LIT g1r8 [
+                                                    LIT g1r12 [],
+                                                    LIT g1r7 [
+                                                        LIT g1r10 [],
+                                                        LIT g1r9 []
+                                                    ]
+                                                ]
+                                            ]
+                                        ],
+                                        LIT g1r13 []
+                                    ],
+                                    LIT g1r13 []
+                                ],
+                                LIT g1r11 []
+                            ],
+                            LIT g1r11 []
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+-- > printTree $ ligtoRuleTree g1t1
+-- > latexTree $ ligtoRuleTree g1t1
+-- > latexTree $ ligtoCatTree g1t1
+-- > latexTree $ hgtoAllTree $ ligtohg g1t1
+
+
+--------------------------------
+-- grammar 2: w v wR vR, but (only?) the other way LIG can do it
+
+g2r1 = Branch S [] S [B] (Push 2) 201
+g2r2 = Branch S [] S [D] (Push 4) 202
+g2r3 = Branch S [] T [] (NoChange) 203
+g2r4 = Branch T [A] T [A] (NoChange) 204
+g2r5 = Branch T [C] T [C] (NoChange) 205
+g2r6 = Branch T [] U [] (NoChange) 206
+g2r7 = Branch U [] U [B] (Pop 2) 207
+g2r8 = Branch U [] U [D] (Pop 4) 208
+g2r9 = Leaf U [] 209
+g2r10 = Leaf A ["a"] 210
+g2r11 = Leaf B ["b"] 211
+g2r12 = Leaf C ["c"] 212
+g2r13 = Leaf D ["d"] 213
+
+g2t1 =  LIT g2r1 [
+            LIT g2r2 [
+                LIT g2r1 [
+                    LIT g2r3 [
+                        LIT g2r4 [
+                            LIT g2r10 [],
+                            LIT g2r5 [
+                                LIT g2r12 [],
+                                LIT g2r5 [
+                                    LIT g2r12 [],
+                                    LIT g2r6 [
+                                        LIT g2r7 [
+                                            LIT g2r8 [
+                                                LIT g2r7 [
+                                                    LIT g2r9 [],
+                                                    LIT g2r11 []
+                                                ],
+                                                LIT g2r13 []
+                                            ],
+                                            LIT g2r11 []
+                                        ]
+                                    ],
+                                    LIT g2r12 []
+                                ],
+                                LIT g2r12 []
+                            ],
+                            LIT g2r10 []
+                        ]
+                    ],
+                    LIT g2r11 []
+                ],
+                LIT g2r13 []
+            ],
+            LIT g2r11 []
+        ]
