@@ -8,6 +8,9 @@ insertSpaces :: Show a => [a] -> String
 insertSpaces [] = ""
 insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
 
+combine :: ([a], [a]) -> [a]
+combine (x,y) = x++y
+
 -- tree printing functions
 
 printTree :: Tree String -> IO ()
@@ -19,15 +22,35 @@ latexTree x = putStrLn $ unlines $ ("\\begin{forest}":(drawLatex x) ++ ["\\end{f
 
 latexNode :: String -> String
 latexNode ('\n':xs) = "\\\\" ++ latexNode xs
-latexNode (',':xs) = "\\hgs " ++ latexNode xs
-latexNode ('-':'>':xs) = "\\ra " ++ latexNode xs
+latexNode ('\"':xs) = latexNode xs
+latexNode ('\\':xs) = latexNode xs
+latexNode ('#':xs) = "\\#" ++ latexNode xs
+-- latexNode (',':xs) = "\\hgs " ++ latexNode xs
+latexNode ('-':'>':xs) = "\\ra{} " ++ latexNode xs
 latexNode (x:xs) = x : latexNode xs
 latexNode "" = ""
 
 drawLatex :: Tree String -> [String]
 drawLatex (Node x []) = lines ("[{"++(latexNode x)++"}]")
 drawLatex (Node x ts0) = lines ("[{"++(latexNode x)++"}") ++ drawSubTrees ts0 ++ ["]"]
-  where
-    drawSubTrees [] = []
-    drawSubTrees (t:ts) =
-        zipWith (++) (repeat "    ") (drawLatex t) ++ drawSubTrees ts
+    where
+        drawSubTrees [] = []
+        drawSubTrees (t:ts) =
+            zipWith (++) (repeat "    ") (drawLatex t) ++ drawSubTrees ts
+
+-------- basic categories ---------
+-- nonterminals
+data VN = S | T | U | A | B | C | D deriving (Show, Eq)
+
+-- terminals
+type VT = String
+
+  
+{- -- not sure how this will work; the category of an LIG isn't nts...
+class GF t y where
+    category :: Tree t -> Maybe nts
+    yield :: Tree t -> y
+
+instance GF (LIGRule ll) String
+-}
+
