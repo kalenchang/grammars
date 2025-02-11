@@ -67,7 +67,9 @@ yieldh (HGT (Wrap {}) [t1,t2]) = let (t1l, t1r) = yieldh t1 in let (t2l, t2r) = 
 
 -- let n = length of [a], and concat all the terminals for the first n daughters, 
 -- plus the left half of n+1; do the same on the other side
+-- note to self: I think I need to pattern match on the empty list, in case of empty string (which I represent as [])
 -- hgconcat :: Show ts => [a] -> [HGTree nts ts] -> ([ts], [ts])
+hgconcat _ [] = ([],[])
 hgconcat [] (t:ts) = let (d1, d2) = yieldh t in (d1, d2 ++ concat (map (combine . yieldh) ts))
 hgconcat (l:ls) (t:ts) = let (s1, s2) = hgconcat ls ts in (combine (yieldh t) ++ s1, s2)
 
