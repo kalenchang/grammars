@@ -6,182 +6,132 @@ module HGtoLIG where
 import Prelude
 import Data.Tree
 import TreePrint
+import HG
+import LIG
 
--- nonterminals
-data VN = S | T | B | C | D deriving (Eq, Show)
-
--- terminals
-type VT = String
-
--- hg rules
-data HGRule = Concat {mother :: VN, lefts :: [VN], daughter :: VN, rights :: [VN], label :: Int} 
-        | Wrap {mother :: VN, left :: VN, right :: VN, label :: Int}
-        | Leaf {mother :: VN, lterms :: VT, rterms :: VT, label :: Int} deriving Eq
-
--- insertSpaces' :: [String] -> String
--- insertSpaces' [] = ""
--- insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
-
-instance Show HGRule where
-    show (Concat a b c d e) = show a ++ " -C" ++ show (length b + 1) ++ "->" ++ insertSpaces b ++ ' ':(show c) ++ insertSpaces d
-    show (Wrap a b c d) = show a ++ " -W-> " ++ show b ++ ' ':(show c)
-    show (Leaf a b c d) = show a ++ " --> " ++ b ++ " , " ++ c
-
--- hg grammars
-newtype HG = HG ([VN], [VT], VN, [HGRule])
-
--- list of rules
-hgr1, hgr2, hgr3, hgr4, hgr5, hgr6, hgr7 :: HGRule
-hgr1 = Wrap S S C 1
-hgr2 = Concat S [] T [] 2
-hgr3 = Concat T [B] T [D] 3
-hgr4 = Leaf T "x" "y" 4
-hgr5 = Leaf B "" "b" 5
-hgr6 = Leaf C "" "c" 6
-hgr7 = Leaf D "" "d" 7
-
--- dummy rule
-hgr0 :: HGRule
-hgr0 = Leaf S [] [] 0
-
-hgrlist :: [HGRule]
-hgrlist = [hgr1, hgr2, hgr3, hgr4, hgr5, hgr6, hgr7]
-
-lookupHGR :: Int -> [HGRule] -> HGRule
-lookupHGR n (x:xs) = if label x == n then x else lookupHGR n xs
-lookupHGR _ [] = hgr0
-
-gethgrule :: Int -> HGRule
-gethgrule x = lookupHGR x hgrlist
-
--- this HG produces b^n x c^m y d^n using wraps
-hg1 :: HG
-hg1 = HG ([S, T, B, C, D], ["x", "y", "b", "c", "d"], S, hgrlist)
-
-data HGTree = HGT HGRule [HGTree] deriving (Show, Eq)
-
-tree1 :: HGTree
-tree1 = HGT hgr1 [
-            HGT hgr2 [
-                HGT hgr3 [
-                    HGT hgr5 [],
-                    HGT hgr4 [],
-                    HGT hgr7 []
-                ]
-            ],
-            HGT hgr6 []
-        ]
-
-yield :: HGTree -> (String, String)
-yield (HGT (Leaf _ l r _) _) = (l, r)
-yield (HGT (Concat _ l d r _) subtrees) = hgconcat l subtrees
-yield (HGT (Wrap {}) [t1,t2]) = let (t1l, t1r) = yield t1 in let (t2l, t2r) = yield t2 in (t1l ++ t2l, t2r ++ t1r)
-
-combine :: (String, String) -> String
-combine (x,y) = x++y
-
-hgconcat :: [a] -> [HGTree] -> (String, String)
-hgconcat [] (t:ts) = let (d1, d2) = yield t in (d1, d2 ++ concat (map (combine . yield) ts))
-hgconcat (l:ls) (t:ts) = let (s1, s2) = hgconcat ls ts in (combine (yield t) ++ s1, s2)
-
--- show an LIG tree using only its rule label
-hgtoLabelTree :: HGTree -> Tree String
-hgtoLabelTree (HGT r t) = Node (show $ label r) (map hgtoLabelTree t)
-
--- show an LIG tree using the full rule
-hgtoRuleTree :: HGTree -> Tree String
-hgtoRuleTree (HGT r t) = Node (show r) (map hgtoRuleTree t)
+-- show an HG tree using only its rule label
+-- hgtoLabelTree :: HGTree -> Tree String
+-- hgtoLabelTree (HGT r t) = Node (show $ label r) (map hgtoLabelTree t)
 
 -- doesn't check for correctness, only takes mother node
-hgtoCatTree :: HGTree -> Tree String
-hgtoCatTree (HGT (Leaf a b c _) t) = Node (show a ++ '\n':b ++ ',':c) (map hgtoCatTree t)
-hgtoCatTree (HGT r t) = Node (show $ mother r) (map hgtoCatTree t)
+-- hgtoLeftTree :: HGTree -> Tree String
+-- hgtoLeftTree (HGT (Leaf a b c _) t) = Node (show a ++ '\n':b ++ ',':c) (map hgtoLeftTree t)
+-- hgtoLeftTree (HGT r t) = Node (show $ mother r) (map hgtoLeftTree t)
 
 -- HG derivations with only numbers
 -- Cc Int:subscript index/designated daughter Int:rule number
-data HGRN = Wp Int | Cc Int Int | Lx Int deriving (Eq, Show)
+-- data HGRN = Wp Int | Cc Int Int | Lx Int deriving (Eq, Show)
 
 -- HG number tree
-data HGNT = HGNT HGRN [HGNT]
-treen1 :: HGNT
-treen1 = HGNT (Wp 1) [
-            HGNT (Cc 1 2) [
-                HGNT (Cc 2 3) [
-                    HGNT (Lx 5) [],
-                    HGNT (Lx 4) [],
-                    HGNT (Lx 7) []
-                ]
-            ],
-            HGNT (Lx 6) []
-        ]
+-- data HGNT = HGNT HGRN [HGNT]
+-- treen1 :: HGNT
+-- treen1 = HGNT (Wp 1) [
+--             HGNT (Cc 1 2) [
+--                 HGNT (Cc 2 3) [
+--                     HGNT (Lx 5) [],
+--                     HGNT (Lx 4) [],
+--                     HGNT (Lx 7) []
+--                 ]
+--             ],
+--             HGNT (Lx 6) []
+--         ]
 
-treen11 :: HGNT
-treen11 = HGNT (Cc 1 1) [
-            HGNT (Cc 1 2) [
-                HGNT (Cc 2 3) [
-                    HGNT (Lx 5) [],
-                    HGNT (Lx 4) [],
-                    HGNT (Lx 7) []
-                ]
-            ],
-            HGNT (Lx 6) []
-        ]
+-- treen11 :: HGNT
+-- treen11 = HGNT (Cc 1 1) [
+--             HGNT (Cc 1 2) [
+--                 HGNT (Cc 2 3) [
+--                     HGNT (Lx 5) [],
+--                     HGNT (Lx 4) [],
+--                     HGNT (Lx 7) []
+--                 ]
+--             ],
+--             HGNT (Lx 6) []
+--         ]
 
-treen2 :: HGNT
-treen2 = HGNT (Wp 1) [
-            HGNT (Wp 1) [
-                HGNT (Cc 1 2) [
-                    HGNT (Cc 2 3) [
-                        HGNT (Lx 5) [],
-                        HGNT (Lx 4) [],
-                        HGNT (Lx 7) []
-                    ]
-                ],
-                HGNT (Lx 6) []
-            ],
-            HGNT (Lx 6) []
-        ]   
+-- treen2 :: HGNT
+-- treen2 = HGNT (Wp 1) [
+--             HGNT (Wp 1) [
+--                 HGNT (Cc 1 2) [
+--                     HGNT (Cc 2 3) [
+--                         HGNT (Lx 5) [],
+--                         HGNT (Lx 4) [],
+--                         HGNT (Lx 7) []
+--                     ]
+--                 ],
+--                 HGNT (Lx 6) []
+--             ],
+--             HGNT (Lx 6) []
+--         ]   
 
-makeHGT :: HGNT -> HGTree
-makeHGT (HGNT (Wp n) subtrees) = HGT (gethgrule n) (map makeHGT subtrees)
-makeHGT (HGNT (Cc _ n) subtrees) = HGT (gethgrule n) (map makeHGT subtrees)
-makeHGT (HGNT (Lx n) subtrees) = HGT (gethgrule n) (map makeHGT subtrees)
+-- makeHGT :: HGNT -> HGTree
+-- makeHGT (HGNT (Wp n) subtrees) = HGT (gethgrule n) (map makeHGT subtrees)
+-- makeHGT (HGNT (Cc _ n) subtrees) = HGT (gethgrule n) (map makeHGT subtrees)
+-- makeHGT (HGNT (Lx n) subtrees) = HGT (gethgrule n) (map makeHGT subtrees)
 
-hgToTree :: HGNT -> Tree String
-hgToTree (HGNT r l) = Node (show r) (map hgToTree l)
+-- hgToTree :: HGNT -> Tree String
+-- hgToTree (HGNT r l) = Node (show r) (map hgToTree l)
 
-printHGT :: HGNT -> IO ()
-printHGT t = putStrLn $ drawTree $ hgToTree t
+-- printHGT :: HGNT -> IO ()
+-- printHGT t = putStrLn $ drawTree $ hgToTree t
 
 
 ----------------------------------------
 -- LIG section
 
+-- need to add a new type for the nonterminals of LIGs derived from HGs
+-- Alpha is alpha, N are the nonterminals from the original HG
+-- T represents terminals from the original HG -- they can serve as unary rules to write just the terminal
+-- -- this is because for the lexical rules in the LIG I want to mix Ts and NTs, so this is a workaround
+data LIGtransNT nts ts = Alpha | Nl nts | Tl ts deriving Eq
+
+instance (Show nts, Show ts) => Show (LIGtransNT nts ts) where
+    show Alpha = "@"
+    show (Nl n) = show n
+    show (Tl t) = '!':show t
+
 -- three kinds of rules in the new LIG
--- H are rules that come from HG (Cc, Wp, Lx)
--- Pop are rules that pop off the stack
+-- H are rules that come from HG (HC = concat, HW = wrap, HL = lexical)
+-- Pop are rules that pop off the stack (top down)
 -- Emp are rules which write empty string from alpha
-data LIGR = HC Int Int | HW Int | HL Int | Pop | Emp deriving (Eq, Show)
-data LITree = LIT LIGR [LITree] deriving (Eq, Show)
+-- Unary are rules which rewrite a NT named after a terminal as that terminal
+-- data LIGR = HC Int Int | HW Int | HL Int | Pop | Emp deriving (Eq, Show)
+-- makeHCrule :: (HGRule nts ts) -> LIGRule (LIGtransNT nts ts) ts nts
+makeHCrule (Concat a b c d e) = Branch (Nl a) (map Nl b) (Nl c) (map Nl d) NoChange e
 
-ligToTree :: LITree -> Tree String
-ligToTree (LIT r l) = Node (show r) (map ligToTree l)
+-- makeHWrule :: (HGRule nts ts) -> LIGRule (LIGtransNT nts ts) ts nts
+makeHWrule (Wrap a b c d) = Branch (Nl a) [] (Nl b) [] (Push c) d
 
-printLIGT :: LITree -> IO ()
-printLIGT t = putStrLn $ drawTree $ ligToTree t
+-- makeHLrule :: (HGRule nts ts) -> LIGRule (LIGtransNT nts ts) ts nts
+makeHLrule (Leafh a b c d) = Branch (Nl a) (map Tl b) Alpha (map Tl c) NoChange d
+
+-- makePoprule :: nts -> LIGRule (LIGtransNT nts ts) ts nts
+makePoprule c = Branch Alpha [] (Nl c) [] (Pop c) 1
+
+-- emprule :: LIGRule (LIGtransNT nts ts) ts nts
+emprule = Leaf Alpha [] 2 
+
+-- makeUnaryrule :: ts -> LIGRule (LIGtransNT nts ts) ts nts
+makeUnaryrule c = Leaf (Tl c) [c] 3
+
+-- ligToTree :: LITree -> Tree String
+-- ligToTree (LIT r l) = Node (show r) (map ligToTree l)
+
+-- printLIGT :: LITree -> IO ()
+-- printLIGT t = putStrLn $ drawTree $ ligToTree t
 
 -- ligate
-ligify :: HGNT -> LITree
-ligify (HGNT (Lx n) subtrees) = LIT (HL n) [LIT Emp []]
-ligify (HGNT (Cc m n) subtrees) = LIT (HC m n) (map ligify subtrees)
-ligify (HGNT (Wp n) [l, r]) = LIT (HW n) [subtail (ligify l) (LIT Pop [ligify r])]
+-- ligify :: HGTree nts ts -> LITree (LIGtransNT nts ts) ts nts
+ligify (HGT rule@(Leafh _ b c _) []) = LIT (makeHLrule rule) ((map ((\x -> LIT x []) . makeUnaryrule) b) 
+                                                            ++ (LIT emprule []):(map ((\x -> LIT x []) . makeUnaryrule) c))
+ligify (HGT rule@(Concat _ _ _ _ _) subtrees) = LIT (makeHCrule rule) (map ligify subtrees)
+ligify (HGT rule@(Wrap _ _ c _) [l, r]) = LIT (makeHWrule rule) [subtail (ligify l) (LIT (makePoprule c) [ligify r])]
 
-showLIGR :: LIGR -> String
-showLIGR (HC a b) = undefined
-showLIGR (HW a) = undefined
-showLIGR (HL a) = let hgr = gethgrule a in (show $ mother hgr) ++ "[] -> " ++ lterms hgr ++ " " ++ rterms hgr
-showLIGR (Pop) = undefined
-showLIGR (Emp) = "@[] -> "
+-- showLIGR :: LIGR -> String
+-- showLIGR (HC a b) = undefined
+-- showLIGR (HW a) = undefined
+-- showLIGR (HL a) = let hgr = gethgrule a in (show $ mother hgr) ++ "[] -> " ++ lterms hgr ++ " " ++ rterms hgr
+-- showLIGR (Pop) = undefined
+-- showLIGR (Emp) = "@[] -> "
 
 -- instance Show LIGRule where
 --     show (Branch a b c d e f) = let (s1, s2) = case e of {NoChange -> ("[..] ->","[..]"); 
@@ -191,8 +141,8 @@ showLIGR (Emp) = "@[] -> "
 --     show (Leaf a b c) = (show a) ++ "[] ->" ++ (insertSpaces' b)
 
 -- first is the one whose tail you are looking for; second is the tree to replace the tail
-subtail :: LITree -> LITree -> LITree
-subtail (LIT (HC m n) ts) r = let (a,b,c) = splitlist ts m in LIT (HC m n) (a ++ (subtail b r):c)
+-- subtail :: LITree nts ts ind -> LITree nts ts ind -> LITree nts ts ind 
+subtail (LIT rule@(Branch _ b _ _ _ _) ts) r = let (x,y,z) = splitlist ts (length b) in LIT rule (x ++ (subtail y r):z)
 subtail (LIT rule [t]) r = LIT rule [subtail t r]
 -- subtail (LIT (HW n) [t]) r = LIT (HW n) [subtail t r]
 -- subtail (LIT Pop [t]) r = LIT Pop [subtail t r]
@@ -200,7 +150,69 @@ subtail (LIT rule [t]) r = LIT rule [subtail t r]
 -- subtail (LIT Emp []) r = r
 subtail (LIT _ []) r = r
 
-splitlist :: [a] -> Int -> ([a], a, [a])
-splitlist (l:ls) 1 = ([], l, ls)
-splitlist (l:ls) n = let (a,b,c) = splitlist ls (n-1) in (l:a, b, c)
+-- splitlist splits the first argument into a triple at the position indicated by the second argument
+-- makes a true "headed" list
+-- splitlist :: [a] -> Int -> ([a], a, [a])
+splitlist (l:ls) 0 = ([], l, ls)
+splitlist (l:ls) n = let (x,y,z) = splitlist ls (n-1) in (l:x, y, z)
+
+
+-- try:
+-- > latexTree $ ligtoAllTree $ ligify hgtree1
+
+--------------------------
+---- example grammars ----
+-- hg1: w v wR vR
+
+hg1r1 = Concat S [A] T [] 1
+hg1r2 = Wrap T S A 2
+hg1r3 = Concat S [C] U [] 3
+hg1r4 = Wrap U S C 4
+hg1r5 = Concat S [] V [] 5
+hg1r6 = Concat V [B] V [B] 6
+hg1r7 = Concat V [D] V [D] 7
+hg1r8 = Leafh V [] [] 8
+hg1r9 = Leafh A ["a"] [] 9
+hg1r10 = Leafh B ["b"] [] 10
+hg1r11 = Leafh C ["c"] [] 11
+hg1r12 = Leafh D ["d"] [] 12
+
+-- string: acc bbdd , cca ddbb
+hg1t1 = HGT hg1r1 [
+            HGT hg1r9 [],
+            HGT hg1r2 [
+                HGT hg1r3 [
+                    HGT hg1r11 [],
+                    HGT hg1r4 [
+                        HGT hg1r3 [
+                            HGT hg1r11 [],
+                            HGT hg1r4 [
+                                HGT hg1r5 [
+                                    HGT hg1r6 [
+                                        HGT hg1r10 [],
+                                        HGT hg1r6 [
+                                            HGT hg1r10 [],
+                                            HGT hg1r7 [
+                                                HGT hg1r12 [],
+                                                HGT hg1r7 [
+                                                    HGT hg1r12 [],
+                                                    HGT hg1r8 [],
+                                                    HGT hg1r12 []
+                                                ],
+                                                HGT hg1r12 []
+                                            ],
+                                            HGT hg1r10 []
+                                        ],
+                                        HGT hg1r10 []
+                                    ]
+                                ],
+                                HGT hg1r11 []
+                            ]
+                        ],
+                        HGT hg1r11 []
+                    ]
+                ],
+                HGT hg1r9 []
+            ]
+        ]
 
