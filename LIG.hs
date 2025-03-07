@@ -16,8 +16,8 @@ data SC ind = NoChange | Push ind | Pop ind deriving (Show, Eq)
 -- Leaf: 1 rewrites as 2
 -- data LIGRule = Branch VN [VN] VN [VN] SC Int | Leaf VN [VT] Int deriving (Show, Eq)
 
-data LIGRule nts ts ind = Branch {mother :: nts, lefts :: [nts], daughter :: nts, rights :: [nts], change :: SC ind, label :: Int} 
-        | Leaf {mother :: nts, terms :: [ts], label :: Int} deriving Eq
+data LIGRule nts ts ind = Branch {mother :: nts, lefts :: [nts], daughter :: nts, rights :: [nts], change :: SC ind} 
+        | Leaf {mother :: nts, terms :: [ts]} deriving Eq
 
 -- i'm starting to feel like branch rules and leaf rules should be their own kinds of rules... but idk
 -- data LIGRule = Branch LIGBranchRule | Leaf LIGLeafRule deriving (Show, Eq)
@@ -27,38 +27,38 @@ data LIGRule nts ts ind = Branch {mother :: nts, lefts :: [nts], daughter :: nts
 
 
 instance (Show nts, Show ts, Show ind) => Show (LIGRule nts ts ind) where
-    show (Branch a b c d e f) = let (s1, s2) = case e of {NoChange -> ("[..] ->","[..]"); 
+    show (Branch a b c d e) = let (s1, s2) = case e of {NoChange -> ("[..] ->","[..]"); 
                                                           Push i -> ("[..] ->","[" ++ (show i) ++ "..]");
                                                           Pop i -> ("[" ++ (show i) ++ "..] ->","[..]")} in
             (show a) ++ s1 ++ (insertSpaces b) ++ ' ':(show c) ++ s2 ++ (insertSpaces d)
-    show (Leaf a b c) = (show a) ++ "[] -> " ++ concat (map show b)
+    show (Leaf a b) = (show a) ++ "[] -> " ++ concat (map show b)
 
 newtype LIG = LIG ([VN], [VT], [VI], VN, [LIGRule VN VT VI])
 
 -- list of rules
 -- ligr1, ligr2, ligr3, ligr4, ligr5, ligr6, ligr7, ligr8, ligr9, ligr10, ligr0 :: LIGRule VN VT VI
-ligr1 = Branch S [A] S [] (Push 1) 1
-ligr2 = Branch S [] T [] NoChange 2 
-ligr3 = Branch T [B] T [D] NoChange 3
-ligr4 = Branch T [] U [] NoChange 4
-ligr5 = Branch U [] U [C] (Pop 1) 5
-ligr6 = Leaf U [] 6
-ligr7 = Leaf A ["a"] 7
-ligr8 = Leaf B ["b"] 8
-ligr9 = Leaf C ["c"] 9
-ligr10 = Leaf D ["d"] 10
+ligr1 = Branch S [A] S [] (Push 1)
+ligr2 = Branch S [] T [] NoChange 
+ligr3 = Branch T [B] T [D] NoChange
+ligr4 = Branch T [] U [] NoChange
+ligr5 = Branch U [] U [C] (Pop 1)
+ligr6 = Leaf U []
+ligr7 = Leaf A ["a"]
+ligr8 = Leaf B ["b"]
+ligr9 = Leaf C ["c"]
+ligr10 = Leaf D ["d"] 
 -- dummy rule
-ligr0 = Branch S [] T [] NoChange 0
+ligr0 = Branch S [] T [] NoChange
 
 -- ligrlist :: [LIGRule VN VT VI]
 ligrlist = [ligr1, ligr2, ligr3, ligr4, ligr5, ligr6, ligr7, ligr8, ligr9, ligr10]
 
 -- lookupLIGR :: Int -> [LIGRule VN VT VI] -> LIGRule VN VT VI
-lookupLIGR n (x:xs) = if label x == n then x else lookupLIGR n xs
-lookupLIGR _ [] = ligr0
+-- lookupLIGR n (x:xs) = if label x == n then x else lookupLIGR n xs
+-- lookupLIGR _ [] = ligr0
 
 -- getrule :: Int -> LIGRule VN VT VI
-getrule x = lookupLIGR x ligrlist
+-- getrule x = lookupLIGR x ligrlist
 
 
 ---- Trees ----
@@ -93,9 +93,9 @@ stackLister l r s = map (\x -> []) l ++ s:(map (\x -> []) r)
 -- check whether a tree produces the given category
 -- still need to check whether stack clears
 -- produces :: (Eq nts, Eq ind) => (LITree nts ts ind) -> nts -> [ind] -> Bool
-produces (LIT (Branch a b c d e _) daughters) nt stack = let newStack = changeStack e (Just stack) in
+produces (LIT (Branch a b c d e) daughters) nt stack = let newStack = changeStack e (Just stack) in
     a == nt && isJust newStack && and (zipWith3 produces daughters (b ++ c:d) (stackLister b d (fromJust newStack)))
-produces (LIT (Leaf a b _) daughters) nt stack = a == nt && null stack && null daughters
+produces (LIT (Leaf a b) daughters) nt stack = a == nt && null stack && null daughters
     -- ignore b (list of terminals) since it doesn't affect whether derivation is valid
 -- produces _ _ _ = False
     -- adding a catchall (for now)... unsure if needed
@@ -111,8 +111,8 @@ extract i (x:xs) = removeIndex i (x,xs)
 -- another alternative to produces: category :: LITree -> Maybe (VN, [VI])
 -- category of a tree is either a NT + stack, or it's nothing if the tree is invalid
 -- category :: (Eq nts, Eq ind) => (LITree nts ts ind) -> Maybe (nts, [ind])
-category (LIT (Leaf a _ _) daughters) = if null daughters then Just (a, []) else Nothing
-category (LIT (Branch a b c d e _) daughters) = if correctDaughters && isJust newStack then Just (a, fromJust newStack) else Nothing
+category (LIT (Leaf a _) daughters) = if null daughters then Just (a, []) else Nothing
+category (LIT (Branch a b c d e) daughters) = if correctDaughters && isJust newStack then Just (a, fromJust newStack) else Nothing
     where
         (desig,rest) = extract (length b) daughters
         correctDaughters = and (zipWith checksides rest (b ++ d)) && checkmiddle 
@@ -186,12 +186,12 @@ tree4 = LIT ligr2 [
 isSentence tree = produces tree S []
 
 -- yield :: Show ts => LITree nts ts ind -> [ts]
-yield (LIT (Leaf a b _) d) = b
-yield (LIT (Branch a b c d e _) daughters) = concat (map yield daughters)
+yield (LIT (Leaf a b) d) = b
+yield (LIT (Branch a b c d e) daughters) = concat (map yield daughters)
 
 -- show an LIG tree using only its rule label
 -- ligtoLabelTree :: LITree nts ts ind -> Tree String
-ligtoLabelTree (LIT r t) = Node (show $ label r) (map ligtoLabelTree t)
+-- ligtoLabelTree (LIT r t) = Node (show $ label r) (map ligtoLabelTree t)
 
 -- show an LIG tree using the full rule
 -- ligtoRuleTree :: (Show nts, Show ts, Show ind) => LITree nts ts ind -> Tree String
@@ -204,7 +204,7 @@ ligtoRuleTree (LIT r t) = Node (show r) (map ligtoRuleTree t)
 -- technically Leaf nodes should not have any daughters, so t in the Leaf line should be []
 -- but also nothing in the data structure is stopping Leaf from having daughters
 -- ligtoLeftsTree :: (Show nts, Show ts) => LITree nts ts ind -> Tree String
-ligtoLeftsTree (LIT (Leaf a b _) t) = Node (show a ++ '\n':(show b)) (map ligtoLeftsTree t)
+ligtoLeftsTree (LIT (Leaf a b) t) = Node (show a ++ '\n':(show b)) (map ligtoLeftsTree t)
 ligtoLeftsTree (LIT r t) = Node (show $ mother r) (map ligtoLeftsTree t)
 
 -- shows the category of the subtree as indicated by the `category' function
@@ -219,4 +219,7 @@ ligtoYieldTree t@(LIT r ts) = Node (concat (map show (yield t))) (map ligtoYield
 -- shows the rule on one line, second line is cat: yield
 -- ligtoAllTree :: (Show nts, Show ts, Eq nts, Show ind, Eq ind) => LITree nts ts ind -> Tree String
 ligtoAllTree t@(LIT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (concat (map show (yield t)))) (map ligtoAllTree ts)
+        where cat = case category t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
+
+ligtoAllTree' t@(LIT r ts) = Node ((show r) ++ '\n':cat ) (map ligtoAllTree' ts)
         where cat = case category t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
