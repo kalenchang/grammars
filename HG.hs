@@ -4,41 +4,41 @@ import Prelude
 import TreePrint
 import Data.Tree
 
-data HGRule nts ts = Concat {motherh :: nts, leftsh :: [nts], daughterh :: nts, rightsh :: [nts], labelh :: Int} 
-        | Wrap {motherh :: nts, lefth :: nts, righth :: nts, labelh :: Int}
-        | Leafh {motherh :: nts, ltermsh :: [ts], rtermsh :: [ts], labelh :: Int} deriving Eq
+data HGRule nts ts = Concat {motherh :: nts, leftsh :: [nts], daughterh :: nts, rightsh :: [nts]} 
+        | Wrap {motherh :: nts, lefth :: nts, righth :: nts}
+        | Leafh {motherh :: nts, ltermsh :: [ts], rtermsh :: [ts]} deriving Eq
 
 instance (Show nts, Show ts) => Show (HGRule nts ts) where
-    show (Concat a b c d e) = show a ++ " -C" ++ show (length b + 1) ++ "-> " ++ insertSpaces b ++ ' ':(show c) ++ insertSpaces d
-    show (Wrap a b c d) = show a ++ " -W-> " ++ show b ++ ' ':(show c)
-    show (Leafh a b c d) = show a ++ " --> " ++ concat (map show b) ++ " , " ++ concat (map show c)
+    show (Concat a b c d) = show a ++ " -C" ++ show (length b + 1) ++ "-> " ++ insertSpaces b ++ ' ':(show c) ++ insertSpaces d
+    show (Wrap a b c) = show a ++ " -W-> " ++ show b ++ ' ':(show c)
+    show (Leafh a b c) = show a ++ " --> " ++ concat (map show b) ++ " , " ++ concat (map show c)
 
 -- hg grammars
 newtype HG = HG ([VN], [VT], VN, [HGRule VN VT])
 
 -- list of rules
 -- hgr1, hgr2, hgr3, hgr4, hgr5, hgr6, hgr7 :: HGRule VN VT
-hgr1 = Wrap S S C 1
-hgr2 = Concat S [] T [] 2
-hgr3 = Concat T [B] T [D] 3
-hgr4 = Leafh T ["x"] ["y"] 4
-hgr5 = Leafh B [] ["b"] 5
-hgr6 = Leafh C [] ["c"] 6
-hgr7 = Leafh D [] ["d"] 7
+hgr1 = Wrap S S C
+hgr2 = Concat S [] T []
+hgr3 = Concat T [B] T [D]
+hgr4 = Leafh T ["x"] ["y"]
+hgr5 = Leafh B [] ["b"]
+hgr6 = Leafh C [] ["c"]
+hgr7 = Leafh D [] ["d"]
 
 -- dummy rule
 -- hgr0 :: HGRule VN VT
-hgr0 = Leafh S [] [] 0
+hgr0 = Leafh S [] []
 
 -- hgrlist :: [HGRule VN VT]
 hgrlist = [hgr1, hgr2, hgr3, hgr4, hgr5, hgr6, hgr7]
 
 -- lookupHGR :: Int -> [HGRule VN VT] -> HGRule VN VT
-lookupHGR n (x:xs) = if labelh x == n then x else lookupHGR n xs
-lookupHGR _ [] = hgr0
+-- lookupHGR n (x:xs) = if labelh x == n then x else lookupHGR n xs
+-- lookupHGR _ [] = hgr0
 
 -- gethgrule :: Int -> HGRule VN VT
-gethgrule x = lookupHGR x hgrlist
+-- gethgrule x = lookupHGR x hgrlist
 
 -- this HG produces b^n x c^m y d^n using wraps
 -- hg1 :: HG
@@ -61,8 +61,8 @@ hgtree1 = HGT hgr1 [
 data HGTree nts ts = HGT (HGRule nts ts) [HGTree nts ts] deriving (Show, Eq)
 
 -- yieldh :: Show ts => HGTree nts ts -> ([ts], [ts])
-yieldh (HGT (Leafh _ l r _) _) = (l, r)
-yieldh (HGT (Concat _ l d r _) sub) = hgconcat l sub
+yieldh (HGT (Leafh _ l r) _) = (l, r)
+yieldh (HGT (Concat _ l d r) sub) = hgconcat l sub
 yieldh (HGT (Wrap {}) [t1,t2]) = let (t1l, t1r) = yieldh t1 in let (t2l, t2r) = yieldh t2 in (t1l ++ t2l, t2r ++ t1r)
 
 -- let n = length of [a], and concat all the terminals for the first n daughters, 
@@ -81,8 +81,8 @@ combine2 (x,y) = concat (map show x)++',':concat (map show y)
 hgtoYieldTree t@(HGT r ts) = Node (combine2 $ yieldh t) (map hgtoYieldTree ts)
 
 -- categoryh :: Eq nts => (HGTree nts ts) -> Maybe nts
-categoryh (HGT (Leafh a _ _ _) daughters) = if null daughters then Just a else Nothing
-categoryh (HGT (Concat a b c d _) daughters) = if and (zipWith checkcath daughters (b ++ c:d)) then Just a else Nothing       
+categoryh (HGT (Leafh a _ _) daughters) = if null daughters then Just a else Nothing
+categoryh (HGT (Concat a b c d) daughters) = if and (zipWith checkcath daughters (b ++ c:d)) then Just a else Nothing       
 categoryh (HGT (Wrap a b c _) daughters) = case daughters of
                 d1:d2:[] -> if checkcath d1 b && checkcath d2 c then Just a else Nothing
                 _ -> Nothing
