@@ -96,22 +96,22 @@ instance (Show nts, Show ts) => Show (LIGtransNT nts ts) where
 -- Unary are rules which rewrite a NT named after a terminal as that terminal
 -- data LIGR = HC Int Int | HW Int | HL Int | Pop | Emp deriving (Eq, Show)
 -- makeHCrule :: (HGRule nts ts) -> LIGRule (LIGtransNT nts ts) ts nts
-makeHCrule (Concat a b c d e) = Branch (Nl a) (map Nl b) (Nl c) (map Nl d) NoChange e
+makeHCrule (Concat a b c d) = Branch (Nl a) (map Nl b) (Nl c) (map Nl d) NoChange
 
 -- makeHWrule :: (HGRule nts ts) -> LIGRule (LIGtransNT nts ts) ts nts
-makeHWrule (Wrap a b c d) = Branch (Nl a) [] (Nl b) [] (Push c) d
+makeHWrule (Wrap a b c) = Branch (Nl a) [] (Nl b) [] (Push c)
 
 -- makeHLrule :: (HGRule nts ts) -> LIGRule (LIGtransNT nts ts) ts nts
-makeHLrule (Leafh a b c d) = Branch (Nl a) (map Tl b) Alpha (map Tl c) NoChange d
+makeHLrule (Leafh a b c) = Branch (Nl a) (map Tl b) Alpha (map Tl c) NoChange
 
 -- makePoprule :: nts -> LIGRule (LIGtransNT nts ts) ts nts
-makePoprule c = Branch Alpha [] (Nl c) [] (Pop c) 1
+makePoprule c = Branch Alpha [] (Nl c) [] (Pop c)
 
 -- emprule :: LIGRule (LIGtransNT nts ts) ts nts
-emprule = Leaf Alpha [] 2 
+emprule = Leaf Alpha []
 
 -- makeUnaryrule :: ts -> LIGRule (LIGtransNT nts ts) ts nts
-makeUnaryrule c = Leaf (Tl c) [c] 3
+makeUnaryrule c = Leaf (Tl c) [c]
 
 -- ligToTree :: LITree -> Tree String
 -- ligToTree (LIT r l) = Node (show r) (map ligToTree l)
@@ -121,10 +121,10 @@ makeUnaryrule c = Leaf (Tl c) [c] 3
 
 -- ligate
 -- ligify :: HGTree nts ts -> LITree (LIGtransNT nts ts) ts nts
-ligify (HGT rule@(Leafh _ b c _) []) = LIT (makeHLrule rule) ((map ((\x -> LIT x []) . makeUnaryrule) b) 
+ligify (HGT rule@(Leafh _ b c) []) = LIT (makeHLrule rule) ((map ((\x -> LIT x []) . makeUnaryrule) b) 
                                                             ++ (LIT emprule []):(map ((\x -> LIT x []) . makeUnaryrule) c))
-ligify (HGT rule@(Concat _ _ _ _ _) subtrees) = LIT (makeHCrule rule) (map ligify subtrees)
-ligify (HGT rule@(Wrap _ _ c _) [l, r]) = LIT (makeHWrule rule) [subtail (ligify l) (LIT (makePoprule c) [ligify r])]
+ligify (HGT rule@(Concat _ _ _ _) subtrees) = LIT (makeHCrule rule) (map ligify subtrees)
+ligify (HGT rule@(Wrap _ _ c) [l, r]) = LIT (makeHWrule rule) [subtail (ligify l) (LIT (makePoprule c) [ligify r])]
 
 -- showLIGR :: LIGR -> String
 -- showLIGR (HC a b) = undefined
@@ -142,7 +142,7 @@ ligify (HGT rule@(Wrap _ _ c _) [l, r]) = LIT (makeHWrule rule) [subtail (ligify
 
 -- first is the one whose tail you are looking for; second is the tree to replace the tail
 -- subtail :: LITree nts ts ind -> LITree nts ts ind -> LITree nts ts ind 
-subtail (LIT rule@(Branch _ b _ _ _ _) ts) r = let (x,y,z) = splitlist ts (length b) in LIT rule (x ++ (subtail y r):z)
+subtail (LIT rule@(Branch _ b _ _ _) ts) r = let (x,y,z) = splitlist ts (length b) in LIT rule (x ++ (subtail y r):z)
 subtail (LIT rule [t]) r = LIT rule [subtail t r]
 -- subtail (LIT (HW n) [t]) r = LIT (HW n) [subtail t r]
 -- subtail (LIT Pop [t]) r = LIT Pop [subtail t r]
@@ -164,18 +164,18 @@ splitlist (l:ls) n = let (x,y,z) = splitlist ls (n-1) in (l:x, y, z)
 ---- example grammars ----
 -- hg1: w v wR vR
 
-hg1r1 = Concat S [A] T [] 1
-hg1r2 = Wrap T S A 2
-hg1r3 = Concat S [C] U [] 3
-hg1r4 = Wrap U S C 4
-hg1r5 = Concat S [] V [] 5
-hg1r6 = Concat V [B] V [B] 6
-hg1r7 = Concat V [D] V [D] 7
-hg1r8 = Leafh V [] [] 8
-hg1r9 = Leafh A ["a"] [] 9
-hg1r10 = Leafh B ["b"] [] 10
-hg1r11 = Leafh C ["c"] [] 11
-hg1r12 = Leafh D ["d"] [] 12
+hg1r1 = Concat S [A] T [] 
+hg1r2 = Wrap T S A 
+hg1r3 = Concat S [C] U [] 
+hg1r4 = Wrap U S C 
+hg1r5 = Concat S [] R [] 
+hg1r6 = Concat R [B] R [B] 
+hg1r7 = Concat R [D] R [D] 
+hg1r8 = Leafh R [] [] 
+hg1r9 = Leafh A ["a"] [] 
+hg1r10 = Leafh B ["b"] []
+hg1r11 = Leafh C ["c"] []
+hg1r12 = Leafh D ["d"] []
 
 -- string: acc bbdd , cca ddbb
 hg1t1 = HGT hg1r1 [
