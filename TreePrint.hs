@@ -26,8 +26,15 @@ latexNode ('\"':xs) = latexNode xs
 latexNode ('\\':xs) = latexNode xs
 latexNode ('#':xs) = "\\#" ++ latexNode xs
 latexNode ('@':xs) = "\\ap" ++ latexNode xs
--- latexNode (',':xs) = "\\hgs " ++ latexNode xs
+latexNode (',':xs) = "\\hgs{} " ++ latexNode xs
+latexNode ('-':'W':'-':'>':xs) = "\\xra{W} " ++ latexNode xs
+latexNode ('-':'C':'1':'-':'>':xs) = "\\xraa{1}{C} " ++ latexNode xs
+latexNode ('-':'C':'2':'-':'>':xs) = "\\xraa{2}{C} " ++ latexNode xs
+latexNode ('-':'C':'3':'-':'>':xs) = "\\xraa{3}{C} " ++ latexNode xs
+latexNode ('-':'-':'>':xs) = "\\ra{} " ++ latexNode xs
 latexNode ('-':'>':xs) = "\\ra{} " ++ latexNode xs
+latexNode ('W':'h':xs) = "\\ml{wh}" ++ latexNode xs
+latexNode ('V':'E':xs) = "V\\tul{E}" ++ latexNode xs
 latexNode (x:xs) = x : latexNode xs
 latexNode "" = ""
 
@@ -41,13 +48,10 @@ drawLatex (Node x ts0) = lines ("[{"++(latexNode x)++"}") ++ drawSubTrees ts0 ++
 
 -------- basic categories ---------
 -- nonterminals
-data VN = S | T | U | V | A | B | C | D deriving (Show, Eq)
+data VN = S | T | U | R | A | B | C | D deriving (Show, Eq)
 
 -- terminals
 type VT = String
-
--- natural language categories
-data Cats = CP | DP | VP deriving (Show, Eq)
   
 {- -- not sure how this will work; the category of an LIG isn't nts...
 class GF t y where
