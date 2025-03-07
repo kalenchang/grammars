@@ -42,8 +42,8 @@ printRose t = putStrLn $ drawTree $ roseToTree t
 -- anyone can give a maliciously bad derivation...
 parseRose :: LITree nts ts ind -> RoseTree (LIGRule nts ts ind)
 parseRose (LIT r []) = Bud r
-parseRose (LIT r@(Leaf a b _) t) = Bud r
-parseRose (LIT r@(Branch a b c d _ _) t) = let (ls,c:rs) = splitat (length b) t in RT r (map parseRose ls) (parseRose c) (map parseRose rs)
+parseRose (LIT r@(Leaf a b) t) = Bud r
+parseRose (LIT r@(Branch a b c d _) t) = let (ls,c:rs) = splitat (length b) t in RT r (map parseRose ls) (parseRose c) (map parseRose rs)
 
 data PTree a = PT a (TContext a) deriving (Show, Eq)
 data TContext a = EmptyContext | TC a [PTree a] (TContext a) [PTree a] deriving (Show, Eq)
@@ -115,22 +115,22 @@ instance (Show nts, Show ind) => Show (HGTransNT nts ind) where
 
 -- constructors for HGRules that come from an LIG
 makeW1rule :: nts -> nts -> nts -> ind -> HGRule (HGTransNT nts ind) ts
-makeW1rule a b d e = Wrap (Trp a d (Just e)) (Trp a b Nothing) (Trp b d (Just e)) 1 -- labels will all be 1 for now...
+makeW1rule a d b e = Wrap (Trp a d (Just e)) (Trp a b Nothing) (Trp b d (Just e))
 
 makeW2rule :: nts -> nts -> HGRule (HGTransNT nts ind) ts
-makeW2rule a b = Wrap (Sng a) (Trp a b Nothing) (Sng b) 2
+makeW2rule a b = Wrap (Sng a) (Trp a b Nothing) (Sng b)
 
 makeErule :: nts -> HGRule (HGTransNT nts ind) ts
-makeErule a = Leafh (Trp a a Nothing) [] [] 3
+makeErule a = Leafh (Trp a a Nothing) [] []
 
 makeLrule :: (LIGRule nts ts ind) -> nts -> HGRule (HGTransNT nts ind) ts
-makeLrule (Branch a b c d e f) g = let (k, l) = case e of {NoChange -> (Nothing, Nothing); 
+makeLrule (Branch a b c d e) g = let (k, l) = case e of {NoChange -> (Nothing, Nothing); 
                                                             Push i -> (Nothing, Just i);
                                                             Pop i -> (Just i, Nothing)} in
-                Concat (Trp a g k) (map Sng b) (Trp c g l) (map Sng d) f
+                Concat (Trp a g k) (map Sng b) (Trp c g l) (map Sng d)
 
 makeLxrule :: (LIGRule nts ts ind) -> HGRule (HGTransNT nts ind) ts
-makeLxrule (Leaf a b c) = Leafh (Sng a) [] b c
+makeLxrule (Leaf a b) = Leafh (Sng a) [] b
 
 -- old show code; the show function should fall out from the rule constructors + showing those
 {-
@@ -174,7 +174,7 @@ conthead (TC m _ _ _) = m
 contexthg :: (Eq ind) => TContext (LIGRule nts ts ind) -> nts -> HGTree (HGTransNT nts ind) ts
 contexthg EmptyContext y = HGT (makeErule y) []
     -- write a case (similar to hgify above) where if W1 is followed by empty context, it is trivial and remove it
-contexthg (TC m@(Branch _ _ _ _ (Push i) _) l d r) y = let (t,b) = splitcon i [] d in 
+contexthg (TC m@(Branch _ _ _ _ (Push i)) l d r) y = let (t,b) = splitcon i [] d in 
     if emptycont t then 
         HGT (makeLrule m y) ((map hgify l) ++ (contexthg b y):(map hgify r))
     else 
@@ -241,19 +241,19 @@ measureHG = undefined
 -------------------------------
 -- grammar 1: w v wR vR
 
-g1r1 = Branch S [A] S [] (Push 1) 101
-g1r2 = Branch S [C] S [] (Push 3) 102
-g1r3 = Branch S [] T [] (NoChange) 103
-g1r4 = Branch T [B] T [B] (NoChange) 104
-g1r5 = Branch T [D] T [D] (NoChange) 105
-g1r6 = Branch T [] U [] (NoChange) 106
-g1r7 = Branch U [A] U [] (Pop 1) 107
-g1r8 = Branch U [C] U [] (Pop 3) 108
-g1r9 = Leaf U [] 109
-g1r10 = Leaf A ["a"] 110
-g1r11 = Leaf B ["b"] 111
-g1r12 = Leaf C ["c"] 112
-g1r13 = Leaf D ["d"] 113
+g1r1 = Branch S [A] S [] (Push 1)
+g1r2 = Branch S [C] S [] (Push 3)
+g1r3 = Branch S [] T [] (NoChange)
+g1r4 = Branch T [B] T [B] (NoChange)
+g1r5 = Branch T [D] T [D] (NoChange)
+g1r6 = Branch T [] U [] (NoChange)
+g1r7 = Branch U [A] U [] (Pop 1)
+g1r8 = Branch U [C] U [] (Pop 3)
+g1r9 = Leaf U []
+g1r10 = Leaf A ["a"]
+g1r11 = Leaf B ["b"]
+g1r12 = Leaf C ["c"]
+g1r13 = Leaf D ["d"]
 
 -- acc bdb cca bdb
 g1t1 =  LIT g1r1 [
@@ -341,19 +341,19 @@ g1t2 =  LIT g1r1 [
 --------------------------------
 -- grammar 2: w v wR vR, but (only?) the other way LIG can do it
 
-g2r1 = Branch S [] S [B] (Push 2) 201
-g2r2 = Branch S [] S [D] (Push 4) 202
-g2r3 = Branch S [] T [] (NoChange) 203
-g2r4 = Branch T [A] T [A] (NoChange) 204
-g2r5 = Branch T [C] T [C] (NoChange) 205
-g2r6 = Branch T [] U [] (NoChange) 206
-g2r7 = Branch U [] U [B] (Pop 2) 207
-g2r8 = Branch U [] U [D] (Pop 4) 208
-g2r9 = Leaf U [] 209
-g2r10 = Leaf A ["a"] 210
-g2r11 = Leaf B ["b"] 211
-g2r12 = Leaf C ["c"] 212
-g2r13 = Leaf D ["d"] 213
+g2r1 = Branch S [] S [B] (Push 2)
+g2r2 = Branch S [] S [D] (Push 4)
+g2r3 = Branch S [] T [] (NoChange)
+g2r4 = Branch T [A] T [A] (NoChange)
+g2r5 = Branch T [C] T [C] (NoChange)
+g2r6 = Branch T [] U [] (NoChange)
+g2r7 = Branch U [] U [B] (Pop 2)
+g2r8 = Branch U [] U [D] (Pop 4)
+g2r9 = Leaf U []
+g2r10 = Leaf A ["a"]
+g2r11 = Leaf B ["b"]
+g2r12 = Leaf C ["c"]
+g2r13 = Leaf D ["d"]
 
 g2t1 =  LIT g2r1 [
             LIT g2r2 [
