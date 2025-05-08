@@ -11,7 +11,7 @@ data HGRule nts ts = Concat {motherh :: nts, leftsh :: [nts], daughterh :: nts, 
 instance (Show nts, Show ts) => Show (HGRule nts ts) where
     show (Concat a b c d) = show a ++ " -C" ++ show (length b + 1) ++ "-> " ++ insertSpaces b ++ ' ':(show c) ++ insertSpaces d
     show (Wrap a b c) = show a ++ " -W-> " ++ show b ++ ' ':(show c)
-    show (Leafh a b c) = show a ++ " --> " ++ concat (map show b) ++ " , " ++ concat (map show c)
+    show (Leafh a b c) = show a ++ " --> " ++ concat (map show b) ++ ";" ++ concat (map show c)
 
 -- hg grammars
 newtype HG = HG ([VN], [VT], VN, [HGRule VN VT])
@@ -74,7 +74,7 @@ hgconcat [] (t:ts) = let (d1, d2) = yieldh t in (d1, d2 ++ concat (map (combine 
 hgconcat (l:ls) (t:ts) = let (s1, s2) = hgconcat ls ts in (combine (yieldh t) ++ s1, s2)
 
 -- combine2 :: Show ts => ([ts], [ts]) -> String
-combine2 (x,y) = concat (map show x)++',':concat (map show y)
+combine2 (x,y) = concat (map show x)++';':concat (map show y)
 
 -- show an HG tree using only its rule label
 -- hgtoYieldTree :: Show ts => HGTree nts ts -> Tree String
@@ -83,7 +83,7 @@ hgtoYieldTree t@(HGT r ts) = Node (combine2 $ yieldh t) (map hgtoYieldTree ts)
 -- categoryh :: Eq nts => (HGTree nts ts) -> Maybe nts
 categoryh (HGT (Leafh a _ _) daughters) = if null daughters then Just a else Nothing
 categoryh (HGT (Concat a b c d) daughters) = if and (zipWith checkcath daughters (b ++ c:d)) then Just a else Nothing       
-categoryh (HGT (Wrap a b c _) daughters) = case daughters of
+categoryh (HGT (Wrap a b c) daughters) = case daughters of
                 d1:d2:[] -> if checkcath d1 b && checkcath d2 c then Just a else Nothing
                 _ -> Nothing
 checkcath :: Eq nts => HGTree nts ts -> nts -> Bool
