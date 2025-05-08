@@ -105,32 +105,33 @@ rosify (PT b (TC m l d r)) = RT m (map rosify l) (rosify (PT b d)) (map rosify r
 -- contexthg EmptyContext = HGT E []
 -- contexthg (TC m l d r) = HGT (L m) ((map hgify l) ++ (contexthg d):(map hgify r))
 
-data HGTransNT nts ind = Sng nts | Trp nts nts (Maybe ind) deriving Eq
+-- Bool indicates whether the NT before it is a barred symbol or not
+data HGTransNT nts ind = Sng nts Bool | Trp nts nts Bool (Maybe ind) deriving Eq
 
 instance (Show nts, Show ind) => Show (HGTransNT nts ind) where
-    show (Sng a) = show a
-    show (Trp a b e) = '(':(show a) ++ ',':(show b) ++ ',':(case e of {Just i -> show i; Nothing -> "0"}) ++ ")"
+    show (Sng a bar) = show a ++ if bar then "'" else ""
+    show (Trp a b bar e) = '(':(show a) ++ ',':(show b) ++ (if bar then "'" else "") ++ ',':(case e of {Just i -> show i; Nothing -> "0"}) ++ ")"
 
 -- data HGRule nts ts = W1 nts nts nts VI | W2 nts nts | E nts | L (LIGRule nts ts) nts | Lx (LIGRule nts ts) deriving Eq
 
 -- constructors for HGRules that come from an LIG
 makeW1rule :: nts -> nts -> nts -> ind -> HGRule (HGTransNT nts ind) ts
-makeW1rule a d b e = Wrap (Trp a d (Just e)) (Trp a b Nothing) (Trp b d (Just e))
+makeW1rule a d b e = Wrap (Trp a d False (Just e)) (Trp a b True Nothing) (Trp b d True (Just e))
 
 makeW2rule :: nts -> nts -> HGRule (HGTransNT nts ind) ts
-makeW2rule a b = Wrap (Sng a) (Trp a b Nothing) (Sng b)
+makeW2rule a b = Wrap (Sng a False) (Trp a b True Nothing) (Sng b True)
 
 makeErule :: nts -> HGRule (HGTransNT nts ind) ts
-makeErule a = Leafh (Trp a a Nothing) [] []
+makeErule a = Leafh (Trp a a False Nothing) [] []
 
-makeLrule :: (LIGRule nts ts ind) -> nts -> HGRule (HGTransNT nts ind) ts
-makeLrule (Branch a b c d e) g = let (k, l) = case e of {NoChange -> (Nothing, Nothing); 
+makeLrule :: (LIGRule nts ts ind) -> nts -> Bool -> HGRule (HGTransNT nts ind) ts
+makeLrule (Branch a b c d e) g bar = let (k, l) = case e of {NoChange -> (Nothing, Nothing); 
                                                             Push i -> (Nothing, Just i);
                                                             Pop i -> (Just i, Nothing)} in
-                Concat (Trp a g k) (map Sng b) (Trp c g l) (map Sng d)
+                Concat (Trp a g bar k) (map (\x -> Sng x False) b) (Trp c g False l) (map (\x -> Sng x False) d)
 
-makeLxrule :: (LIGRule nts ts ind) -> HGRule (HGTransNT nts ind) ts
-makeLxrule (Leaf a b) = Leafh (Sng a) [] b
+makeLxrule :: (LIGRule nts ts ind) -> Bool -> HGRule (HGTransNT nts ind) ts
+makeLxrule (Leaf a b) bar = Leafh (Sng a bar) [] b
 
 -- old show code; the show function should fall out from the rule constructors + showing those
 {-
@@ -154,11 +155,11 @@ printHG :: (Show nts, Show ts) => HGTree nts ts -> IO ()
 printHG t = putStrLn $ drawTree $ hgtoRuleTree t
 
 hgify :: Eq ind => PTree (LIGRule nts ts ind) -> HGTree (HGTransNT nts ind) ts
-hgify (PT r EmptyContext) = HGT (makeLxrule r) []
+hgify (PT r EmptyContext) = HGT (makeLxrule r False) []
     -- if W2 is followed by empty context, it is trivial; you can remove the W2 and E
 hgify (PT r cont) = let x = (mother $ conthead cont) in 
                       let y = (mother r) in
-                    HGT (makeW2rule x y) [contexthg cont y, HGT (makeLxrule r) []]
+                    HGT (makeW2rule x y) [contexthg cont y True, HGT (makeLxrule r True) []]
     -- distinction between L rules and Lx rules is structural; all buds are Lx.
     -- do I ever need to reference what kind of rule each number is? eg Branch vs Leaf LIGrule?
     -- I don't think so, assuming that the LIG tree was well formed, ie. leaves only at leaves
@@ -171,17 +172,17 @@ conthead :: TContext (LIGRule nts ts ind) -> LIGRule nts ts ind
 conthead EmptyContext = undefined
 conthead (TC m _ _ _) = m
 
-contexthg :: (Eq ind) => TContext (LIGRule nts ts ind) -> nts -> HGTree (HGTransNT nts ind) ts
-contexthg EmptyContext y = HGT (makeErule y) []
+contexthg :: (Eq ind) => TContext (LIGRule nts ts ind) -> nts -> Bool -> HGTree (HGTransNT nts ind) ts
+contexthg EmptyContext y bar = if not bar then HGT (makeErule y) [] else undefined
     -- write a case (similar to hgify above) where if W1 is followed by empty context, it is trivial and remove it
-contexthg (TC m@(Branch _ _ _ _ (Push i)) l d r) y = let (t,b) = splitcon i [] d in 
+contexthg (TC m@(Branch _ _ _ _ (Push i)) l d r) y bar = let (t,b) = splitcon i [] d in 
     if emptycont t then 
-        HGT (makeLrule m y) ((map hgify l) ++ (contexthg b y):(map hgify r))
+        HGT (makeLrule m y bar) ((map hgify l) ++ (contexthg b y True):(map hgify r))
     else 
         let x = mother $ conthead t 
             z = mother $ conthead b
-        in HGT (makeLrule m y) ((map hgify l) ++ (HGT (makeW1rule x y z i) [contexthg t z, contexthg b y]):(map hgify r))
-contexthg (TC m l d r) y = HGT (makeLrule m y) ((map hgify l) ++ (contexthg d y):(map hgify r))
+        in HGT (makeLrule m y bar) ((map hgify l) ++ (HGT (makeW1rule x y z i) [contexthg t z True, contexthg b y True]):(map hgify r))
+contexthg (TC m l d r) y bar = HGT (makeLrule m y bar) ((map hgify l) ++ (contexthg d y False):(map hgify r))
 
 splitcon :: Eq ind => ind -> [ind] -> TContext (LIGRule nts ts ind) -> (TContext (LIGRule nts ts ind), TContext (LIGRule nts ts ind))
 splitcon i is EmptyContext = (EmptyContext, EmptyContext)
@@ -389,4 +390,40 @@ g2t1 =  LIT g2r1 [
                 LIT g2r13 []
             ],
             LIT g2r11 []
+        ]
+
+
+----------------------
+-- grammar 3: w w
+
+g3r1 = Branch S [A] S [] (Push 1)
+g3r2 = Branch S [B] S [] (Push 2)
+g3r3 = Branch S [] T [] (NoChange)
+g3r4 = Branch T [] T [A] (Pop 1)
+g3r5 = Branch T [] T [B] (Pop 2)
+g3r6 = Leaf T []
+g3r7 = Leaf A ["a"]
+g3r8 = Leaf B ["b"]
+
+-- abb abb
+g3t1 =  LIT g3r1 [
+            LIT g3r7 [],
+            LIT g3r2 [
+                LIT g3r8 [],
+                LIT g3r2 [
+                    LIT g3r8 [],
+                    LIT g3r3 [
+                        LIT g3r5 [
+                            LIT g3r5 [
+                                LIT g3r4 [
+                                    LIT g3r6 [],
+                                    LIT g3r7 []
+                                ],
+                                LIT g3r8 []
+                            ],
+                            LIT g3r8 []
+                        ]
+                    ]
+                ]
+            ]
         ]
