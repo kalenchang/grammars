@@ -31,6 +31,20 @@ pdar1 = PDAR pdat1 (
             )
         )
 
+pdar2 = PDAR pdat1 (
+            PDAR pdat1 (
+                PDAR pdat1 (
+                    PDAR pdat2 (
+                        PDAR pdat3 (
+                            PDAR pdat3 (
+                                PDAR pdat3 (EndRun 2)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
 pdat11 = PDAT 1 "NP " Z 1 [Z, Y]
 pdat12 = PDAT 1 "" Z 1 []
 pdat13 = PDAT 1 "V " Y 1 []
