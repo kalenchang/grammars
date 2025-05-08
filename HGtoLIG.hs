@@ -216,3 +216,35 @@ hg1t1 = HGT hg1r1 [
             ]
         ]
 
+
+---------------------
+-- hg3: w w
+
+hg3r1 = Concat S [A] T [] 
+hg3r2 = Wrap T S A 
+hg3r3 = Concat S [B] U [] 
+hg3r4 = Wrap U S B 
+hg3r5 = Leafh S [] []
+hg3r6 = Leafh A [] ["a"]
+hg3r7 = Leafh B [] ["b"]
+
+-- abb ; abb
+hg3t1 = HGT hg3r1 [
+            HGT hg3r6 [],
+            HGT hg3r2 [
+                HGT hg3r3 [
+                    HGT hg3r7 [],
+                    HGT hg3r4 [
+                        HGT hg3r3 [
+                            HGT hg3r7 [],
+                            HGT hg3r4 [
+                                HGT hg3r5 [],
+                                HGT hg3r7 []
+                            ]
+                        ],
+                        HGT hg3r7 []
+                    ]
+                ],
+                HGT hg3r6 []
+            ]
+        ]
