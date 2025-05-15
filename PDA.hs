@@ -8,6 +8,8 @@ data Stacksymb = Y | Z deriving (Eq, Show)
 
 -- top of stack is left (outermost element on list)
 data PDATrans st sy ind = PDAT {fromState :: st, symb :: sy, popInd :: ind, toState :: st, pushInd :: [ind]} deriving Eq
+-- I think I want to keep symb as [sy] so that I have a 0 element for general sy, not just strings?
+-- or make it monoidal?
 
 instance (Show st, Show sy, Show ind) => Show (PDATrans st sy ind) where
     show (PDAT a b c d e) = '(':show a ++ ',':show b ++ ',':show c ++ ") -> (" ++ show d ++ ',': show e ++")"
@@ -79,3 +81,38 @@ pdatoAllTree (EndRun s) = Node (show s ++ "[]") []
 pdatoAllTree r@(PDAR t rest) = Node ((show t) ++ '\n':cat ++ ": " ++ (concat (yieldp r))) [pdatoAllTree rest]
         where cat = case fromWhere r of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
 
+
+
+
+-- multipop PDA. for now, just duplicating the definitions of PDA to make MPDA, where popInd can be a list.
+-- ultimately i should figure out how to combine this code...
+data MPDATrans st sy ind = MPDAT {mfromState :: st, msymb :: sy, mpopInd :: [ind], mtoState :: st, mpushInd :: [ind]} deriving Eq
+
+instance (Show st, Show sy, Show ind) => Show (MPDATrans st sy ind) where
+    show (MPDAT a b c d e) = '(':show a ++ ',':show b ++ ',':show c ++ ") -> (" ++ show d ++ ',': show e ++")"
+
+data MPDARun st sy ind = MEndRun st | MPDAR (MPDATrans st sy ind) (MPDARun st sy ind) deriving Eq
+
+instance (Show st, Show sy, Show ind) => Show (MPDARun st sy ind) where
+    show (MPDAR trans rest) = show trans ++ '\n':show rest
+
+-- need to clean up all the maybes......
+mfromWhere :: (Eq st, Eq ind) => MPDARun st sy ind -> Maybe (st, [ind])
+mfromWhere (MEndRun s) = Just (s, [])
+mfromWhere (MPDAR t@(MPDAT a _ c d e) rest) = case (mfromWhere rest) of {Just (s, stack) -> if s == d then
+                    case addind c (strip e (Just stack)) of {Just newstack -> Just (a, newstack); Nothing -> Nothing} else Nothing;
+                    Nothing -> Nothing}
+    where
+        addind x Nothing = Nothing
+        addind x (Just xs) = Just (x ++ xs)
+        strip _ Nothing = Nothing
+        strip [] s = s
+        strip (x:xs) (Just []) = Nothing
+        strip (x:xs) (Just (i:is)) = if x == i then strip xs (Just is) else Nothing
+
+yieldmp (MEndRun _) = []
+yieldmp (MPDAR (MPDAT _ b _ _ _) rest) = b:(yieldmp rest)
+
+mpdatoAllTree (MEndRun s) = Node (show s ++ "[]") []
+mpdatoAllTree r@(MPDAR t rest) = Node ((show t) ++ '\n':cat ++ ": " ++ (concat (yieldmp r))) [mpdatoAllTree rest]
+        where cat = case mfromWhere r of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
