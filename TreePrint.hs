@@ -8,6 +8,10 @@ insertSpaces :: Show a => [a] -> String
 insertSpaces [] = ""
 insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
 
+insertSpaces' :: [String] -> String
+insertSpaces' [] = ""
+insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
+
 combine :: ([a], [a]) -> [a]
 combine (x,y) = x++y
 
