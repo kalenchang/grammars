@@ -60,7 +60,7 @@ cfg2r1 = Branching CP [AP, CP, AP]
 cfg2r2 = Branching CP [BP, CP, BP]
 cfg2r3 = Leafing AP ["a"]
 cfg2r4 = Leafing BP ["b"]
-cfg2r5 = Leafing CP []
+cfg2r5 = Leafing CP [""]
 
 cfg2t1 = CFT cfg2r1 [
             CFT cfg2r3 [],
