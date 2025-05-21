@@ -223,3 +223,36 @@ ligtoAllTree t@(LIT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (concat (map s
 
 ligtoAllTree' t@(LIT r ts) = Node ((show r) ++ '\n':cat ) (map ligtoAllTree' ts)
         where cat = case category t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
+
+
+lig2r1 = Branch S [A] S [] (Push 1)
+lig2r2 = Branch S [B] S [] (Push 2)
+lig2r3 = Branch S [] T [] NoChange 
+lig2r4 = Branch T [A] T [] (Pop 1)
+lig2r5 = Branch T [B] T [] (Pop 2)
+lig2r6 = Leaf T [""]
+lig2r7 = Leaf A ["a"]
+lig2r8 = Leaf B ["b"]
+
+lig2t2 = LIT ligr1 [
+            LIT lig2r7 [],
+            LIT lig2r2 [
+                LIT lig2r8 [],
+                LIT lig2r2 [
+                    LIT lig2r8 [],
+                    LIT lig2r3 [
+                        LIT lig2r5 [
+                            LIT lig2r8 [],
+                            LIT lig2r5 [
+                                LIT lig2r8 [],
+                                LIT lig2r4 [
+                                    LIT lig2r7 [],
+                                    LIT lig2r6 [
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
