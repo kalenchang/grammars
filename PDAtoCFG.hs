@@ -48,3 +48,5 @@ buildcfg (PDAR trans@(PDAT a b c d e) rest) = let (daughts, newrest) = buildlist
         buildlist (e1:es) (PDAR tr rests) = let (z,w) = (buildlist (pushInd tr) rests) in
                                             let (x,y) = buildlist es w in
                                             ((CFT (Branching e1 (pushInd tr)) z):x, y)
+
+-- > printTree $ cfgtoAllTree $ buildoutercfg pdar2
