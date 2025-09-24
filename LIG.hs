@@ -207,6 +207,10 @@ ligtoRuleTree (LIT r t) = Node (show r) (map ligtoRuleTree t)
 ligtoLeftsTree (LIT (Leaf a b) t) = Node (show a ++ '\n':(show b)) (map ligtoLeftsTree t)
 ligtoLeftsTree (LIT r t) = Node (show $ mother r) (map ligtoLeftsTree t)
 
+-- shows tree in a presentation friendly way: category+stack and terminals only (assumes b :: list of strings)
+ligPresent (LIT (Leaf a b) t) = Node (show a ++ "[]\n" ++ (concat b)) []
+ligPresent (LIT r t) = Node (case category (LIT r t) of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}) (map ligPresent t)
+
 -- shows the category of the subtree as indicated by the `category' function
 -- ought to implement some kind of memoization so it does not need to calculate the subtree's categories multiple times
 -- ligtoCatTree :: (Show nts, Eq nts, Show ind, Eq ind) => LITree nts ts ind -> Tree String
@@ -234,7 +238,7 @@ lig2r6 = Leaf T [""]
 lig2r7 = Leaf A ["a"]
 lig2r8 = Leaf B ["b"]
 
-lig2t2 = LIT ligr1 [
+lig2t2 = LIT lig2r1 [
             LIT lig2r7 [],
             LIT lig2r2 [
                 LIT lig2r8 [],
@@ -248,6 +252,60 @@ lig2t2 = LIT ligr1 [
                                 LIT lig2r4 [
                                     LIT lig2r7 [],
                                     LIT lig2r6 [
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+
+lig3r1 = Branch S [A] S [] (Push 1)
+lig3r2 = Branch S [B] S [] (Pop 1)
+lig3r3 = Leaf S [""]
+lig3r4 = Leaf A ["a"]
+lig3r5 = Leaf B ["b"]
+
+lig3t1 = LIT lig3r1 [
+            LIT lig3r4 [],
+            LIT lig3r1 [
+                LIT lig3r4 [],
+                LIT lig3r2 [
+                    LIT lig3r5 [],
+                    LIT lig3r1 [
+                        LIT lig3r4 [],
+                        LIT lig3r2 [
+                            LIT lig3r5 [],
+                            LIT lig3r2 [
+                                LIT lig3r5 [],
+                                LIT lig3r3 [
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+lig3t2 = LIT lig3r1 [
+            LIT lig3r4 [],
+            LIT lig3r1 [
+                LIT lig3r4 [],
+                LIT lig3r2 [
+                    LIT lig3r5 [],
+                    LIT lig3r1 [
+                        LIT lig3r4 [],
+                        LIT lig3r2 [
+                            LIT lig3r5 [],
+                            LIT lig3r2 [
+                                LIT lig3r5 [],
+                                LIT lig3r1 [
+                                    LIT lig3r4 [],
+                                    LIT lig3r2 [
+                                        LIT lig3r5 [],
+                                        LIT lig3r3 []
                                     ]
                                 ]
                             ]
