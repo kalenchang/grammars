@@ -92,6 +92,10 @@ checkcath = \dt -> \n -> case categoryh dt of {Just x1 -> x1 == n; Nothing -> Fa
 -- hgtoCatTree :: (Show nts, Eq nts) => HGTree nts ts -> Tree String
 hgtoCatTree (HGT r t) = Node (case categoryh (HGT r t) of {Just cat -> show cat; Nothing -> "n/a"}) (map hgtoCatTree t)
 
+hgPresent (HGT (Leafh a b c) _) = Node (show a ++ "\n" ++ (concat b) ++ ';':(concat c)) []
+hgPresent (HGT r@(Concat _ b _ _) t) = Node (case categoryh (HGT r t) of {Just cat -> show cat; Nothing -> "n/a"} ++ (show $ length b + 1)) (map hgPresent t)
+hgPresent (HGT r@(Wrap _ _ _) t) = Node (case categoryh (HGT r t) of {Just cat -> show cat; Nothing -> "n/a"} ++ "W") (map hgPresent t)
+
 -- show an HG tree using the full rule
 -- hgtoRuleTree :: (Show nts, Show ts) => HGTree nts ts -> Tree String
 hgtoRuleTree (HGT r l) = Node (show r) (map hgtoRuleTree l)
