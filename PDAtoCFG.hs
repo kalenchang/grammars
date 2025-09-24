@@ -20,32 +20,40 @@ makeNTrule (PDAT a b c d e) sts = Branching (Trpp a c (last (d:sts))) ((Sngp b):
 makeTrule s = Leafing (Sngp s) [s]
 
 -- makecfg' pdar = let (x,_) = makecfg pdar in x
-makecfg :: PDARun st sy ind -> (CFTree (PDAtransNT st sy ind) sy, PDARun st sy ind)
-makecfg (PDAR trans@(PDAT a b c d []) rest) = (CFT (makeNTrule (trans) []) [CFT (makeTrule b) []], rest)
-makecfg (PDAR trans@(PDAT a b c d e) rest) = let (daughts, newrest, intersts) = makecfglist e rest in
-                                            (CFT (makeNTrule trans intersts) ((CFT (makeTrule b) []):daughts), newrest)
+-- makecfg :: PDANur st sy ind -> (CFTree (PDAtransNT st sy ind) sy, PDANur st sy ind)
+-- makecfg (PDAN trans@(PDAT a b c d []) rest) = (CFT (makeNTrule (trans) []) [CFT (makeTrule b) []], rest)
+-- makecfg (PDAN trans@(PDAT a b c d e) rest) = let (daughts, newrest, intersts) = makecfglist e rest in
+--                                             (CFT (makeNTrule trans intersts) ((CFT (makeTrule b) []):daughts), newrest)
 
 -- maybe can add the S -> 1Z2 rule in this helper function?
+-- makecfg' pdar start = let ((x:[]),_,_) = makecfglist [start] pdar in x
+-- makecfglist :: [ind] -> PDANur st sy ind -> ([CFTree (PDAtransNT st sy ind) sy], PDANur st sy ind, [st])
+-- makecfglist [] rest = ([], rest, []) -- (accum of CFTrees, remainder of PDA run, accumulation of denominators)
+-- makecfglist (e1:es) (PDAN tr@(PDAT a b c d []) rests) = let (x,y,z) = makecfglist es rests in
+--                                     ((CFT (makeNTrule tr []) [CFT (makeTrule b) []]):x, y, d:z)
+-- makecfglist (e1:es) (PDAN tr@(PDAT a b c d e) rests) = let (u,v,w) = (makecfglist e rests) in
+--                                     let (x,y,z) = makecfglist es v in
+--                                     ((CFT (makeNTrule tr w) ((CFT (makeTrule b) []):u)):x, y, (last w):z)
+-- write an extractor function to get the denominator of the root node of a cfg tree
 makecfg' pdar start = let ((x:[]),_,_) = makecfglist [start] pdar in x
-makecfglist :: [ind] -> PDARun st sy ind -> ([CFTree (PDAtransNT st sy ind) sy], PDARun st sy ind, [st])
-makecfglist [] rest = ([], rest, []) -- (accum of CFTrees, remainder of PDA run, accumulation of denominators)
-makecfglist (e1:es) (PDAR tr@(PDAT a b c d []) rests) = let (x,y,z) = makecfglist es rests in
+makecfglist :: [ind] -> [PDATrans st sy ind] -> ([CFTree (PDAtransNT st sy ind) sy], [PDATrans st sy ind], [st])
+makecfglist [] ts = ([], ts, []) -- (accum of CFTrees, remainder of PDA run, accumulation of denominators)
+makecfglist (e1:es) (tr@(PDAT a b c d []):rests) = let (x,y,z) = makecfglist es rests in
                                     ((CFT (makeNTrule tr []) [CFT (makeTrule b) []]):x, y, d:z)
-makecfglist (e1:es) (PDAR tr@(PDAT a b c d e) rests) = let (u,v,w) = (makecfglist e rests) in
+makecfglist (e1:es) (tr@(PDAT a b c d e):rests) = let (u,v,w) = (makecfglist e rests) in
                                     let (x,y,z) = makecfglist es v in
                                     ((CFT (makeNTrule tr w) ((CFT (makeTrule b) []):u)):x, y, (last w):z)
--- write an extractor function to get the denominator of the root node of a cfg tree
 
 buildoutercfg pdar = let (x,_) = buildcfg pdar in x
--- assume we have a single state PDA for now. build the CFG tree
+-- assume we have a SINGLE STATE PDA for now. build the CFG tree. i.e. only consider indices
 -- probably can treat buildcfg as a special case of buildlist, since buildlist is just a list of buildcfgs...
-buildcfg :: PDARun st sy ind -> (CFTree ind sy, PDARun st sy ind)
-buildcfg (PDAR trans@(PDAT a b c d []) rest) = (CFT (Leafing c [b]) [], rest)
-buildcfg (PDAR trans@(PDAT a b c d e) rest) = let (daughts, newrest) = buildlist e rest in 
+buildcfg :: PDANur st sy ind -> (CFTree ind sy, PDANur st sy ind)
+buildcfg (PDAN trans@(PDAT a b c d []) rest) = (CFT (Leafing c [b]) [], rest)
+buildcfg (PDAN trans@(PDAT a b c d e) rest) = let (daughts, newrest) = buildlist e rest in 
                                         (CFT (Branching c e) daughts, newrest)
     where
         buildlist [] rest = ([], rest)
-        buildlist (e1:es) (PDAR tr rests) = let (z,w) = (buildlist (pushInd tr) rests) in
+        buildlist (e1:es) (PDAN tr rests) = let (z,w) = (buildlist (pushInd tr) rests) in
                                             let (x,y) = buildlist es w in
                                             ((CFT (Branching e1 (pushInd tr)) z):x, y)
 
