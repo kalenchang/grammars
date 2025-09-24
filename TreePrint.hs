@@ -8,12 +8,20 @@ insertSpaces :: Show a => [a] -> String
 insertSpaces [] = ""
 insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
 
-insertSpaces' :: [String] -> String
-insertSpaces' [] = ""
-insertSpaces' (x:xs) = ' ':(x ++ insertSpaces' xs)
+stringSpaces :: [String] -> String
+stringSpaces [] = "\\ep"
+stringSpaces [""] = "\\ep"
+stringSpaces [x] = x
+stringSpaces (x:xs) = ' ':(x ++ stringSpaces xs)
 
 combine :: ([a], [a]) -> [a]
 combine (x,y) = x++y
+
+-- latex type
+type Latex = String
+
+class Texable a where
+    texify :: a -> Latex
 
 -- tree printing functions
 
@@ -40,6 +48,7 @@ latexNode ('-':'>':xs) = "\\ra{} " ++ latexNode xs
 latexNode ('.':'.':xs) = latexNode xs
 latexNode ('W':'h':xs) = "\\ml{wh}" ++ latexNode xs
 latexNode ('V':'E':xs) = "V\\tul{E}" ++ latexNode xs
+latexNode ('~':xs) = "\\tripcat" ++ latexNode xs
 latexNode (x:xs) = x : latexNode xs
 latexNode "" = ""
 
@@ -53,7 +62,7 @@ drawLatex (Node x ts0) = lines ("[{"++(latexNode x)++"}") ++ drawSubTrees ts0 ++
 
 -------- basic categories ---------
 -- nonterminals
-data VN = S | T | U | R | A | B | C | D deriving (Show, Eq)
+data VN = S | T | U | R | A | B | C | D | CP | VP | NP | VE | VI | V deriving (Show, Eq)
 
 -- terminals
 type VT = String
