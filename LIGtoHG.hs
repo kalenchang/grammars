@@ -108,9 +108,15 @@ rosify (PT b (TC m l d r)) = RT m (map rosify l) (rosify (PT b d)) (map rosify r
 -- Bool indicates whether the NT before it is a barred symbol or not
 data HGTransNT nts ind = Sng nts Bool | Trp nts nts Bool (Maybe ind) deriving Eq
 
+-- regular show instance for triple categories
+-- instance (Show nts, Show ind) => Show (HGTransNT nts ind) where
+--     show (Sng a bar) = show a ++ if bar then "'" else ""
+--     show (Trp a b bar e) = '(':(show a) ++ ',':(show b) ++ (if bar then "'" else "") ++ ',':(case e of {Just i -> show i; Nothing -> "0"}) ++ ")"
+
+-- show instance for triple categories for latex
 instance (Show nts, Show ind) => Show (HGTransNT nts ind) where
-    show (Sng a bar) = show a ++ if bar then "'" else ""
-    show (Trp a b bar e) = '(':(show a) ++ ',':(show b) ++ (if bar then "'" else "") ++ ',':(case e of {Just i -> show i; Nothing -> "0"}) ++ ")"
+    show (Sng a bar) = show a
+    show (Trp a b bar e) = "~{" ++ (show a) ++ "}{" ++ (show b) ++ "}{" ++ (case e of {Just i -> show i; Nothing -> ""}) ++ "}"
 
 -- data HGRule nts ts = W1 nts nts nts VI | W2 nts nts | E nts | L (LIGRule nts ts) nts | Lx (LIGRule nts ts) deriving Eq
 
@@ -177,7 +183,7 @@ contexthg EmptyContext y bar = if not bar then HGT (makeErule y) [] else undefin
     -- write a case (similar to hgify above) where if W1 is followed by empty context, it is trivial and remove it
 contexthg (TC m@(Branch _ _ _ _ (Push i)) l d r) y bar = let (t,b) = splitcon i [] d in 
     if emptycont t then 
-        HGT (makeLrule m y bar) ((map hgify l) ++ (contexthg b y True):(map hgify r))
+        HGT (makeLrule m y bar) ((map hgify l) ++ (contexthg b y False):(map hgify r))
     else 
         let x = mother $ conthead t 
             z = mother $ conthead b
@@ -423,6 +429,44 @@ g3t1 =  LIT g3r1 [
                             ],
                             LIT g3r8 []
                         ]
+                    ]
+                ]
+            ]
+        ]
+
+
+---------------------
+-- grammar 4: ai bj ci dj
+
+g4r1 = Branch S [A] S [] (Push 1)
+g4r2 = Branch S [] T [] (NoChange)
+g4r3 = Branch T [B] T [D] (NoChange)
+g4r4 = Branch T [] U [] (NoChange)
+g4r5 = Branch U [C] U [] (Pop 1)
+g4r6 = Leaf U []
+g4r7 = Leaf A ["a"]
+g4r8 = Leaf B ["b"]
+g4r9 = Leaf C ["c"]
+g4r10 = Leaf D ["d"]
+
+-- aa b cc d
+g4t1 = LIT g4r1 [
+            LIT g4r7 [],
+            LIT g4r1 [
+                LIT g4r7 [],
+                LIT g4r2 [
+                    LIT g4r3 [
+                        LIT g4r8 [],
+                        LIT g4r4 [
+                            LIT g4r5 [
+                                LIT g4r9 [],
+                                LIT g4r5 [
+                                    LIT g4r9 [],
+                                    LIT g4r6 []
+                                ]
+                            ]
+                        ],
+                        LIT g4r10 []
                     ]
                 ]
             ]
