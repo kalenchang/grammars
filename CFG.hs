@@ -18,6 +18,10 @@ instance (Show nts) => Texable (CFGRule nts String) where
     texify (Branching a b) = show a ++ " \\ra{} " ++ insertSpaces b
     texify (Leafing a b) = show a ++ " \\ra{} " ++ stringSpaces b
 
+-- rankc :: CFGRule nts ts -> Int
+rankc (Leafing _ _) = 0
+rankc (Branching _ b) = length b
+
 data CFTree nts ts = CFT (CFGRule nts ts) [CFTree nts ts] deriving (Eq, Show)
 
 categoryc :: (Eq nts) => CFTree nts ts -> Maybe nts
@@ -44,7 +48,7 @@ mucfg1list = [(cfg1r1, lfa),
             (cfg1r5l, let'),
             (cfg1r6r, run')]
 
-mucfg1 rule = lookupint rule mucfg1list
+mucfg1 = lookupint mucfg1list
 
 -- cfg1t1 :: CFTree VN String
 cfg1t1 = CFT cfg1r1 [
