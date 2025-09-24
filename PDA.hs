@@ -109,7 +109,7 @@ mupda2list = [(pda2t1, x ^ x # mary'),
         (pda2t2, x ^ x # john'),
         (pda2t3, x ^ x # swim'),
         (pda2t4, x ^ x # let')]
-mupda2 trans = lookupint trans mupda2list
+mupda2 = lookupint mupda2list
 iotapda2 = idterm
 
 pda2lr1 = [pda2t1, pda2t2, pda2t3, pda2t4]
