@@ -81,7 +81,7 @@ instance Show Term where
    show term = show_term term 10
 
 ------- new stuff
-lookupint rule ((x,int):xs) = if x == rule then int else lookupint rule xs
+lookupint ((x,int):xs) r = if x == r then int else lookupint xs r
 
 idterm = x ^ x
 lfa = x ^ y ^ y # x
