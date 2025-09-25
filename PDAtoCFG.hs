@@ -2,7 +2,8 @@ module PDAtoCFG where
 
 import Prelude
 import Data.Tree
-import TreePrint
+
+import Printing
 import PDA
 import CFG
 
