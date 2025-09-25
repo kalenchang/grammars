@@ -5,7 +5,7 @@ import Data.Tree
 import Data.Maybe
 import Data.List (foldl')
 
-import TreePrint
+import Printing
 import Lambdas
 
 data Stacksymb = Y | Z deriving (Eq, Show)
@@ -212,6 +212,15 @@ pdalshow (q, st, l) = pdallog (q, st) [] l
 pdaltoTex lr@(q, st, l) = let log = pdalshow lr in
     let texit = \(t, cat, yd) -> "\\\\\n" ++ texify t ++ "  &  " ++ (case cat of {Just (q, st) -> showstate q ++ showstack st; Nothing -> "n/a"}) ++ "  &  " ++ concat yd in
         putStrLn ("\\begin{tabular}{lll}\n Start   &  " ++ showstate q ++ showstack st ++ "  &  " ++ concatMap texit log ++ "\n\\end{tabular}")
+
+pdallogden mu iota (q, stack) _ [] = []
+pdallogden mu iota (q, stack) taken (t:ts) = let updated = taken ++ [t] in 
+    (t, pdalcat (q, stack) updated, pdalyield updated, denotep mu iota updated) : (pdallogden mu iota (q, stack) updated ts)
+
+pdallogdentex lr@(q, st, l, mu, iota) = let log = pdallogden mu iota (q, st) [] l in
+    let texit = \(t, cat, yd, den) -> "\\\\\n" ++ texify t ++ "  &  " ++ (case cat of {Just (q, st) -> showstate q ++ showstack st; Nothing -> "n/a"}) ++ "  &  " ++ concat yd ++ " & " ++ texify den in
+        putStrLn ("\\begin{tabular}{lll}\n Start   &  " ++ showstate q ++ showstack st ++ "  &  " ++ " & " ++ texify iota ++ concatMap texit log ++ "\n\\end{tabular}")
+
 
 ------ OLD CODE FOR PDANUR
 
