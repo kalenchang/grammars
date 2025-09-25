@@ -4,7 +4,7 @@ import Prelude hiding ((^))
 import Data.Tree
 import Data.List (foldl')
 
-import TreePrint
+import Printing
 import Lambdas
 
 data CFGRule nts ts = Branching {motherc :: nts, daughtersc :: [nts]} | Leafing {motherc :: nts, terms :: [ts]} deriving Eq
