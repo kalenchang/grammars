@@ -90,6 +90,7 @@ instance Texable Term where
 lambdatex ('\\':xs) = "\\lam " ++ lambdatex xs
 lambdatex ('.':xs) = "\\dt " ++ lambdatex xs
 lambdatex (x:xs) = x:(lambdatex xs)
+lambdatex [] = []
 
 
 lookupint ((x,int):xs) r = if x == r then int else lookupint xs r
