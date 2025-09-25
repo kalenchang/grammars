@@ -1,8 +1,10 @@
 module CFGtoPDA where
 
-import Prelude
+import Prelude hiding ((^))
 import Data.Tree
-import TreePrint
+
+import Printing
+import Lambdas
 import CFG
 import PDA
 
@@ -36,11 +38,30 @@ tdpdaTrans (Leafing a [b]) = PDAT () b [a] () []
 -- tdparse ((CFT r d): rest) = undefined
 
 cptlist :: Monoid ts => CFTree nts ts -> [PDATrans () ts nts]
-cptlist (CFT (Leafing a [b]) []) = [PDAT () b [a] () []]
-cptlist (CFT (Branching a b) ds) = (PDAT () mempty [a] () b) : (concatMap cptlist ds)
+cptlist (CFT r@(Leafing a [b]) []) = [tdpdaTrans r]
+cptlist (CFT r@(Branching a b) ds) = (tdpdaTrans r) : (concatMap cptlist ds)
+
+cpt1l1 = cptlist cfg1t1 
+
+-- > pdalshow ((),[CP],cpt1l1)
+
+-- code to transform mus
+cptmu :: Monoid ts => (CFGRule nts ts, Term) -> (PDATrans () ts nts, Term)
+cptmu (rule, int) = (tdpdaTrans rule, eval (holdout (rankc rule) # int))
+
+-- holdout n lambda arguments
+holdout :: Int -> Term
+holdout 0 = f ^ k ^ k # f
+holdout n = if n > 0 then eval $ (g ^ f ^ k ^ x ^ g # (f # x) # k) # (holdout $ n-1)
+                     else undefined
+
+mucpt1 = lookupint (map cptmu mucfg1list)
+defaultiota = idterm
+
+-- ghci> denotec mucfg1 cfg1t1 
+-- let' (run' john') mary'
 
 
--- > printTree $ pdatoAllTree $ tdparse cfg2t1 
 
 ------ bottom up PDA
 
