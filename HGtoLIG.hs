@@ -5,7 +5,8 @@ module HGtoLIG where
 
 import Prelude
 import Data.Tree
-import TreePrint
+
+import Printing
 import HG
 import LIG
 

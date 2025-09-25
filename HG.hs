@@ -1,8 +1,9 @@
 module HG where
 
 import Prelude
-import TreePrint
 import Data.Tree
+
+import Printing
 
 data HGRule nts ts = Concat {motherh :: nts, leftsh :: [nts], daughterh :: nts, rightsh :: [nts]} 
         | Wrap {motherh :: nts, lefth :: nts, righth :: nts}

@@ -2,7 +2,8 @@ module Combined where
 
 import Prelude
 import Data.Tree
-import TreePrint
+
+import Printing
 import HG
 import LIG
 import LIGtoHG

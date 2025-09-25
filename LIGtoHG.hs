@@ -7,7 +7,8 @@ module LIGtoHG where
 import Prelude
 import Data.Maybe ( isJust, fromJust )
 import Data.Tree
-import TreePrint
+
+import Printing
 import LIG
 import HG
 

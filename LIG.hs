@@ -1,9 +1,10 @@
 module LIG where
 
 import Prelude
-import TreePrint
 import Data.Tree
 import Data.Maybe ( isJust, fromJust )
+
+import Printing
 
 -- indices
 type VI = Int
