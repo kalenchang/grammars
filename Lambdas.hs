@@ -2,7 +2,7 @@ module Lambdas where
 -- from Oleg Kiselyov
 
 import Prelude hiding ((^))
-
+import Printing
 
 type VColor = Int  -- the "color" of a variable. 0 is the "transparent color"
 data VarName = VC VColor String deriving (Eq)
@@ -57,7 +57,7 @@ check_eta (Lm v (Ap t (Var v')))
 check_eta term = term
 
 make_var = Var . VC 0
-[x,y,z,f,g,h,p,q] = map make_var ["x","y","z","f","g","h","p","q"]
+[x,y,z,f,g,h,k,p,q] = map make_var ["x","y","z","f","g","h","k","p","q"]
 
 infixl 8 # 
 (#) = Ap
@@ -81,6 +81,17 @@ instance Show Term where
    show term = show_term term 10
 
 ------- new stuff
+instance Texable VarName where
+    texify = show
+
+instance Texable Term where
+    texify term = lambdatex $ show_term term 10
+
+lambdatex ('\\':xs) = "\\lam " ++ lambdatex xs
+lambdatex ('.':xs) = "\\dt " ++ lambdatex xs
+lambdatex (x:xs) = x:(lambdatex xs)
+
+
 lookupint ((x,int):xs) r = if x == r then int else lookupint xs r
 
 idterm = x ^ x
