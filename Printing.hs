@@ -6,7 +6,8 @@ import Data.Tree
 -- rule showing functions
 insertSpaces :: Show a => [a] -> String
 insertSpaces [] = ""
-insertSpaces (x:xs) = ' ':(show x ++ insertSpaces xs)
+insertSpaces [x] = show x
+insertSpaces (x:xs) = show x ++ " " ++ insertSpaces xs
 
 stringSpaces :: [String] -> String
 stringSpaces [] = "\\ep"
@@ -30,7 +31,7 @@ printTree t = putStrLn $ drawTree t
 
 -- writes the LaTeX "forest" code to display the tree
 latexTree :: Tree String -> IO ()
-latexTree x = putStrLn $ unlines $ ("\\begin{forest}":(drawLatex x) ++ ["\\end{forest}"])
+latexTree x = putStrLn $ "\n" ++ (unlines ("\\begin{forest}":(drawLatex x) ++ ["\\end{forest}"]))
 
 latexNode :: String -> String
 latexNode ('\n':xs) = "\\\\" ++ latexNode xs
@@ -47,6 +48,7 @@ latexNode ('-':'-':'>':xs) = "\\ra{} " ++ latexNode xs
 latexNode ('-':'>':xs) = "\\ra{} " ++ latexNode xs
 latexNode ('.':'.':xs) = latexNode xs
 latexNode ('W':'h':xs) = "\\ml{wh}" ++ latexNode xs
+latexNode ('V':'I':xs) = "V\\tul{I}" ++ latexNode xs
 latexNode ('V':'E':xs) = "V\\tul{E}" ++ latexNode xs
 latexNode ('~':xs) = "\\tripcat" ++ latexNode xs
 latexNode (x:xs) = x : latexNode xs
