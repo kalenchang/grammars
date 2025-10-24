@@ -48,19 +48,14 @@ cpt1l1 = cptlist cfg1t1
 -- code to transform mus
 cptmu :: Monoid ts => (CFGRule nts ts, Term) -> (PDATrans () ts nts, Term)
 cptmu (rule, int) = (tdpdaTrans rule, eval (holdout (rankc rule) # int))
-
--- holdout n lambda arguments
-holdout :: Int -> Term
-holdout 0 = f ^ k ^ k # f
-holdout n = if n > 0 then eval $ (g ^ f ^ k ^ x ^ g # (f # x) # k) # (holdout $ n-1)
-                     else undefined
+iotacpt = idterm
 
 mucpt1 = lookupint (map cptmu mucfg1list)
-defaultiota = idterm
 
 -- ghci> denotec mucfg1 cfg1t1 
 -- let' (run' john') mary'
 
+-- > denotep mucpt1 iotacpt cpt1l1
 
 
 ------ bottom up PDA
@@ -75,16 +70,16 @@ instance Show t => Show (Addone t) where
     show Addedone = "Z"
     show (Reg t) = show t
 
-bupdaTrans :: Monoid ts => CFGRule nts ts -> MPDATrans () ts (Addone nts) 
-bupdaTrans (Branching a b) = MPDAT () mempty (reverse (map Reg b)) () [Reg a]
-bupdaTrans (Leafing a [b]) = MPDAT () b [] () [Reg a]
+bupdaTrans :: Monoid ts => CFGRule nts ts -> PDATrans () ts (Addone nts) 
+bupdaTrans (Branching a b) = PDAT () mempty (reverse (map Reg b)) () [Reg a]
+bupdaTrans (Leafing a [b]) = PDAT () b [] () [Reg a]
 
--- helper function
-buparse' :: Monoid ts => [CFTree nts ts] -> MPDARun () ts (Addone nts) -> MPDARun () ts (Addone nts)
-buparse' [] run = run
-buparse' ((CFT r d):rest) run = buparse' (d ++ rest) (MPDAR (bupdaTrans r) run)
--- actual bottom up parse
-buparse x start = buparse' [x] (MPDAR (MPDAT () mempty [Reg start, Addedone] () []) (MEndRun ()))
+-- -- helper function
+-- buparse' :: Monoid ts => [CFTree nts ts] -> PDARun () ts (Addone nts) -> PDARun () ts (Addone nts)
+-- buparse' [] run = run
+-- buparse' ((CFT r d):rest) run = buparse' (d ++ rest) (PDAR (bupdaTrans r) run)
+-- -- actual bottom up parse
+-- buparse x start = buparse' [x] (PDAR (PDAT () mempty [Reg start, Addedone] () []) (EndRun ()))
 
 cpblist :: Monoid ts => CFTree nts ts -> [PDATrans () ts (Addone nts)]
 cpblist (CFT (Leafing a [b]) []) = [PDAT () b [] () [Reg a]]
@@ -98,3 +93,13 @@ cpbcomplete start d = cpblist d ++ [PDAT () mempty [Reg start, Addedone] () []]
 -- buparse (CFT r d) = (concatMap buparse d) ++ [bupdaTrans r]
 
 -- > printTree $ mpdatoAllTree $ buparse cfg2t1 CP
+
+cpbmu (rule, int) = let rk = rankc rule in (bupdaTrans rule, eval (bcomb # ((holdout rk) # (revlam rk int))))
+iotacpb = idterm
+
+makemucpb startsym mulist = lookupint (map cpbmu mulist ++ [(PDAT () mempty [Reg startsym, Addedone] () [], lowerid)])
+
+mucpbl1 = makemucpb CP mucfg1list
+
+-- > pdaltoTex ((), [Addedone], cpbcomplete CP cfg1t1)
+-- > pdallogdentex ((), [Addedone], cpbcomplete CP cfg1t1, mucpbl1, iotacpb)
