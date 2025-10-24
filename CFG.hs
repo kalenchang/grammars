@@ -83,6 +83,9 @@ cfgtoCatTree t@(CFT r ts) = Node (case categoryc t of {Just cat -> show cat; Not
 cfgtoBothTree t@(CFT r ts) = Node (catc ++ '\n': (concat (yieldc t))) (map cfgtoBothTree ts)
         where catc = case categoryc t of {Just cat -> show cat; Nothing -> "n/a"}
 
+cfgtoThree t@(CFT r ts) = Node ((show r) ++ '\n':catc ++ ": " ++ (concat (yieldc t))) (map (cfgtoThree) ts)
+        where catc = case categoryc t of {Just cat -> show cat; Nothing -> "n/a"}
+
 denotec :: ((CFGRule nts ts) -> Term) -> (CFTree nts ts) -> Term
 denotec mu (CFT r daughters) = foldl' (\x -> \y -> eval (Ap x y)) (mu r) (map (denotec mu) daughters)
 
