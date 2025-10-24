@@ -25,7 +25,7 @@ showstate :: (Show a) => a -> String
 showstate = \x -> let out = show x in if out == "()" then "\\ap" else out
 
 showstack :: (Show a) => [a] -> String
-showstack s = "[" ++ concatMap show s ++ "]"
+showstack s = "[" ++ insertSpaces s ++ "]"
 
 -- -- old pdarun type, a cons list
 -- data PDANur st sy ind = EndNur st [ind] | PDAN (PDATrans st sy ind) (PDANur st sy ind) deriving Eq
@@ -211,7 +211,7 @@ pdalshow (q, st, l) = pdallog (q, st) [] l
 
 pdaltoTex lr@(q, st, l) = let log = pdalshow lr in
     let texit = \(t, cat, yd) -> "\\\\\n" ++ texify t ++ "  &  " ++ (case cat of {Just (q, st) -> showstate q ++ showstack st; Nothing -> "n/a"}) ++ "  &  " ++ concat yd in
-        putStrLn ("\\begin{tabular}{lll}\n Start   &  " ++ showstate q ++ showstack st ++ "  &  " ++ concatMap texit log ++ "\n\\end{tabular}")
+        putStrLn ("\n\\begin{tabular}{lll}\n Start   &  " ++ showstate q ++ showstack st ++ "  &  " ++ concatMap texit log ++ "\n\\end{tabular}\n")
 
 pdallogden mu iota (q, stack) _ [] = []
 pdallogden mu iota (q, stack) taken (t:ts) = let updated = taken ++ [t] in 
@@ -219,7 +219,7 @@ pdallogden mu iota (q, stack) taken (t:ts) = let updated = taken ++ [t] in
 
 pdallogdentex lr@(q, st, l, mu, iota) = let log = pdallogden mu iota (q, st) [] l in
     let texit = \(t, cat, yd, den) -> "\\\\\n" ++ texify t ++ "  &  " ++ (case cat of {Just (q, st) -> showstate q ++ showstack st; Nothing -> "n/a"}) ++ "  &  " ++ concat yd ++ " & " ++ texify den in
-        putStrLn ("\\begin{tabular}{lll}\n Start   &  " ++ showstate q ++ showstack st ++ "  &  " ++ " & " ++ texify iota ++ concatMap texit log ++ "\n\\end{tabular}")
+        putStrLn ("\n\n\\begin{tabular}{llll}\n Start   &  " ++ showstate q ++ showstack st ++ "  &  " ++ " & " ++ texify iota ++ concatMap texit log ++ "\n\\end{tabular}\n\n")
 
 
 ------ OLD CODE FOR PDANUR
@@ -248,33 +248,33 @@ pdallogdentex lr@(q, st, l, mu, iota) = let log = pdallogden mu iota (q, st) [] 
 
 -- multipop PDA. for now, just duplicating the definitions of PDA to make MPDA, where popInd can be a list.
 -- ultimately i should figure out how to combine this code...
-data MPDATrans st sy ind = MPDAT {mfromState :: st, msymb :: sy, mpopInd :: [ind], mtoState :: st, mpushInd :: [ind]} deriving Eq
+-- data MPDATrans st sy ind = MPDAT {mfromState :: st, msymb :: sy, mpopInd :: [ind], mtoState :: st, mpushInd :: [ind]} deriving Eq
 
-instance (Show st, Show sy, Show ind) => Show (MPDATrans st sy ind) where
-    show (MPDAT a b c d e) = '(':show a ++ ',':show b ++ ',':show c ++ ") -> (" ++ show d ++ ',': show e ++")"
+-- instance (Show st, Show sy, Show ind) => Show (MPDATrans st sy ind) where
+--     show (MPDAT a b c d e) = '(':show a ++ ',':show b ++ ',':show c ++ ") -> (" ++ show d ++ ',': show e ++")"
 
-data MPDARun st sy ind = MEndRun st | MPDAR (MPDATrans st sy ind) (MPDARun st sy ind) deriving Eq
+-- data MPDARun st sy ind = MEndRun st | MPDAR (MPDATrans st sy ind) (MPDARun st sy ind) deriving Eq
 
-instance (Show st, Show sy, Show ind) => Show (MPDARun st sy ind) where
-    show (MPDAR trans rest) = show trans ++ '\n':show rest
+-- instance (Show st, Show sy, Show ind) => Show (MPDARun st sy ind) where
+--     show (MPDAR trans rest) = show trans ++ '\n':show rest
 
--- need to clean up all the maybes......
-mfromWhere :: (Eq st, Eq ind) => MPDARun st sy ind -> Maybe (st, [ind])
-mfromWhere (MEndRun s) = Just (s, [])
-mfromWhere (MPDAR t@(MPDAT a _ c d e) rest) = case (mfromWhere rest) of {Just (s, stack) -> if s == d then
-                    case addind c (strip e (Just stack)) of {Just newstack -> Just (a, newstack); Nothing -> Nothing} else Nothing;
-                    Nothing -> Nothing}
-    where
-        addind x Nothing = Nothing
-        addind x (Just xs) = Just (x ++ xs)
-        strip _ Nothing = Nothing
-        strip [] s = s
-        strip (x:xs) (Just []) = Nothing
-        strip (x:xs) (Just (i:is)) = if x == i then strip xs (Just is) else Nothing
+-- -- need to clean up all the maybes......
+-- mfromWhere :: (Eq st, Eq ind) => MPDARun st sy ind -> Maybe (st, [ind])
+-- mfromWhere (MEndRun s) = Just (s, [])
+-- mfromWhere (MPDAR t@(MPDAT a _ c d e) rest) = case (mfromWhere rest) of {Just (s, stack) -> if s == d then
+--                     case addind c (strip e (Just stack)) of {Just newstack -> Just (a, newstack); Nothing -> Nothing} else Nothing;
+--                     Nothing -> Nothing}
+--     where
+--         addind x Nothing = Nothing
+--         addind x (Just xs) = Just (x ++ xs)
+--         strip _ Nothing = Nothing
+--         strip [] s = s
+--         strip (x:xs) (Just []) = Nothing
+--         strip (x:xs) (Just (i:is)) = if x == i then strip xs (Just is) else Nothing
 
-yieldmp (MEndRun _) = []
-yieldmp (MPDAR (MPDAT _ b _ _ _) rest) = b:(yieldmp rest)
+-- yieldmp (MEndRun _) = []
+-- yieldmp (MPDAR (MPDAT _ b _ _ _) rest) = b:(yieldmp rest)
 
-mpdatoAllTree (MEndRun s) = Node (show s ++ "[]") []
-mpdatoAllTree r@(MPDAR t rest) = Node ((show t) ++ '\n':cat ++ ": " ++ (concat (yieldmp r))) [mpdatoAllTree rest]
-        where cat = case mfromWhere r of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
+-- mpdatoAllTree (MEndRun s) = Node (show s ++ "[]") []
+-- mpdatoAllTree r@(MPDAR t rest) = Node ((show t) ++ '\n':cat ++ ": " ++ (concat (yieldmp r))) [mpdatoAllTree rest]
+--         where cat = case mfromWhere r of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
