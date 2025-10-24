@@ -64,6 +64,13 @@ infixl 8 #
 infixr 6 ^      -- a better notation for a lambda-abstraction
 (Var v) ^ body = Lm v body
 
+free_vars:: Term -> [VarName]
+free_vars term = free_vars' term [] []
+   where -- free_vars' term list-of-bound-vars list-of-free-vars-so-far
+    free_vars' (Var v) bound free = if v `elem` bound then free else v:free
+    free_vars' (Ap t1 t2) bound free = free_vars' t1 bound $ free_vars' t2 bound free
+    free_vars' (Lm v body) bound free = free_vars' body (v:bound) free
+
 instance Show VarName where
    show (VC color name) = if color == 0 then name 
                                          else name ++ "_" ++ (show color)
@@ -82,15 +89,27 @@ instance Show Term where
 
 ------- new stuff
 instance Texable VarName where
-    texify = show
+    texify v = show v
+
+funcify v = "\\func{" ++ show v ++ "}"
 
 instance Texable Term where
-    texify term = lambdatex $ show_term term 10
+    texify term = '$':(tex_term term 10 (free_vars term)) ++ "$"
+tex_term (Var v) _ frees = if elem v frees then funcify v else texify v       
+tex_term _ depth frees | depth <= 0 = "..."
+tex_term term depth frees = texit term frees
+ where
+   texit (Lm v body) fs = "(\\lam " ++ (show v) ++ "\\dt " ++ (texit' body fs) ++ ")"
+   texit (Ap t1 t2@(Ap _ _)) fs = (texit' t1 fs) ++ " " ++ "(" ++ (texit' t2 fs) ++ ")"
+   texit (Ap t1 t2) fs = (texit' t1 fs) ++ "\\, " ++ (texit' t2 fs)
+   texit' term fs = tex_term term (depth - 1) fs
 
-lambdatex ('\\':xs) = "\\lam " ++ lambdatex xs
-lambdatex ('.':xs) = "\\dt " ++ lambdatex xs
-lambdatex (x:xs) = x:(lambdatex xs)
-lambdatex [] = []
+-- instance Texable Term where
+--     texify term = '$':(lambdatex $ show_term term 10) ++ "$"
+-- lambdatex ('\\':xs) = "\\lam " ++ lambdatex xs
+-- lambdatex ('.':xs) = "\\dt " ++ lambdatex xs
+-- lambdatex (x:xs) = x:(lambdatex xs)
+-- lambdatex [] = []
 
 
 lookupint ((x,int):xs) r = if x == r then int else lookupint xs r
@@ -99,8 +118,23 @@ idterm = x ^ x
 lfa = x ^ y ^ y # x
 rfa = x ^ y ^ x # y
 funccomp = x ^ y ^ z ^ x # (y # z)
+bcomb = f ^ g ^ k ^ g # (f # k)
+lowerid = g ^ g # (idterm)
 
-[mary', john', let', run', swim'] = map make_var ["mary'", "john'", "let'", "run'", "swim'"]
+[mary', john', let', run', swim'] = map make_var ["m", "j", "let", "run", "swim"]
+
+-- holdout n lambda arguments
+holdout :: Int -> Term
+holdout 0 = f ^ k ^ k # f
+holdout n = if n > 0 then eval $ (g ^ f ^ k ^ x ^ g # (f # x) # k) # (holdout $ n-1)
+                     else undefined
+
+-- reverse the order of the first n lambda abstractions
+-- revlam :: Int -> Term -> Term
+revlam n t = revlam' n t id
+revlam' 0 t f = f t
+revlam' n (Lm v b) f = revlam' (n-1) b (\x -> Lm v (f x))
+
 
 -- todo: i think i need to figure out how to convert these lambda terms to haskell functions, so that
 --      i can evaluate things like arithmetic or tree building or string concat or list building, because
