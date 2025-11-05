@@ -121,7 +121,7 @@ funccomp = x ^ y ^ z ^ x # (y # z)
 bcomb = f ^ g ^ k ^ g # (f # k)
 lowerid = g ^ g # (idterm)
 
-[mary', john', let', run', swim'] = map make_var ["m", "j", "let", "run", "swim"]
+[mary', john', let', run', swim', up', flr', no'] = map make_var ["m", "j", "let", "run", "swim", "up", "flr", "no"]
 
 -- holdout n lambda arguments
 holdout :: Int -> Term
