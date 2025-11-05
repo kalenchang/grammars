@@ -9,6 +9,11 @@ insertSpaces [] = ""
 insertSpaces [x] = show x
 insertSpaces (x:xs) = show x ++ " " ++ insertSpaces xs
 
+texifySpaces :: Texable a => [a] -> String
+texifySpaces [] = ""
+texifySpaces [x] = texify x
+texifySpaces (x:xs) = texify x ++ " " ++ texifySpaces xs
+
 stringSpaces :: [String] -> String
 stringSpaces [] = "\\ep"
 stringSpaces [""] = "\\ep"
@@ -21,8 +26,12 @@ combine (x,y) = x++y
 -- latex type
 type Latex = String
 
-class Texable a where
+class Show a => Texable a where
     texify :: a -> Latex
+    texify = show
+
+instance Texable String where
+    texify = id
 
 -- tree printing functions
 
@@ -55,8 +64,8 @@ latexNode (x:xs) = x : latexNode xs
 latexNode "" = ""
 
 drawLatex :: Tree String -> [String]
-drawLatex (Node x []) = lines ("[{"++(latexNode x)++"}]")
-drawLatex (Node x ts0) = lines ("[{"++(latexNode x)++"}") ++ drawSubTrees ts0 ++ ["]"]
+drawLatex (Node x []) = lines ("[{"++(x)++"}]")
+drawLatex (Node x ts0) = lines ("[{"++(x)++"}") ++ drawSubTrees ts0 ++ ["]"]
     where
         drawSubTrees [] = []
         drawSubTrees (t:ts) =
