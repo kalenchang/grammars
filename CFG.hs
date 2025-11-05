@@ -14,9 +14,9 @@ instance (Show nts, Show ts) => Show (CFGRule nts ts) where
     show (Branching a b) = show a ++ " ->" ++ insertSpaces b
     show (Leafing a b) = show a ++ " ->" ++ insertSpaces b
 
-instance (Show nts) => Texable (CFGRule nts String) where
-    texify (Branching a b) = show a ++ " \\ra{} " ++ insertSpaces b
-    texify (Leafing a b) = show a ++ " \\ra{} " ++ stringSpaces b
+instance (Texable nts) => Texable (CFGRule nts String) where
+    texify (Branching a b) = texify a ++ " \\ra{} " ++ texifySpaces b
+    texify (Leafing a b) = texify a ++ " \\ra{} " ++ stringSpaces b
 
 -- rankc :: CFGRule nts ts -> Int
 rankc (Leafing _ _) = 0
@@ -85,6 +85,9 @@ cfgtoBothTree t@(CFT r ts) = Node (catc ++ '\n': (concat (yieldc t))) (map cfgto
 
 cfgtoThree t@(CFT r ts) = Node ((show r) ++ '\n':catc ++ ": " ++ (concat (yieldc t))) (map (cfgtoThree) ts)
         where catc = case categoryc t of {Just cat -> show cat; Nothing -> "n/a"}
+
+cfgtoThreeLatex t@(CFT r ts) = Node ((texify r) ++ "\\\\" ++ catc ++ ": " ++ (concat (yieldc t))) (map (cfgtoThreeLatex) ts)
+        where catc = case categoryc t of {Just cat -> texify cat; Nothing -> "n/a"}
 
 denotec :: ((CFGRule nts ts) -> Term) -> (CFTree nts ts) -> Term
 denotec mu (CFT r daughters) = foldl' (\x -> \y -> eval (Ap x y)) (mu r) (map (denotec mu) daughters)
