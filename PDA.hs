@@ -27,7 +27,9 @@ showstate = \x -> let out = show x in if out == "()" then "\\ap" else out
 showstack :: (Show a) => [a] -> String
 showstack s = "[" ++ insertSpaces s ++ "]"
 
-type PDARun st sy ind = ([PDATrans st sy ind], st, Maybe ind)
+type PDARun st sy ind = ([PDATrans st sy ind], st, ind)
+
+data PDA st sy ind = PDA {q :: [st], sigma :: [sy], gamma :: [ind], delta :: [PDATrans st sy ind], q0 :: st, z0 :: ind}
 
 -- pda1: an bn
 pdat1 = PDAT 1 "a" [Z] 1 [Z, Z]
@@ -36,7 +38,7 @@ pdat3 = PDAT 2 "b" [Z] 2 []
 
 -- a3b3
 pdal1 = [pdat1, pdat1, pdat1, pdat2, pdat3, pdat3, pdat3]
-pdar1 = (pdal1, 1, Just Z)
+pdar1 = (pdal1, 1, Z)
 
 -- pda2: center embedding
 pda2t1 = PDAT 1 "Mary " [S] 1 [S, V]
@@ -59,16 +61,20 @@ pda3t2 = PDAT 1 "b" [] 1 [B]
 pda3t3 = PDAT 1 "" [] 2 []
 pda3t4 = PDAT 2 "a" [A] 2 []
 pda3t5 = PDAT 2 "b" [B] 2 []
+pda3t6 = PDAT 2 "" [C] 2 []
 
-pda3l1 = [pda3t1, pda3t1, pda3t2, pda3t3, pda3t5, pda3t4, pda3t4]
-pda3r1 = (pda3l1, 1, Nothing)
+pda3 = PDA [1,2] ["a","b"] [A,B,C] [pda3t1,pda3t2,pda3t3,pda3t4,pda3t5,pda3t6] 1 C
+
+pda3l1 = [pda3t1, pda3t1, pda3t2, pda3t3, pda3t5, pda3t4, pda3t4, pda3t6]
+pda3r1 = (pda3l1, 1, C)
 
 mupda3list = [
     (pda3t1, up'),
     (pda3t2, flr'),
     (pda3t3, idterm),
     (pda3t4, up'),
-    (pda3t5, flr')]
+    (pda3t5, flr'),
+    (pda3t6, idterm)]
 mupda3 = lookupint mupda3list
 iotapda3 = no'
 
@@ -99,8 +105,8 @@ pdalcat cat [] = Just cat
 -- pdalcat (q, []) (t:ts) = Nothing
 pdalcat (q, stack) (t@(PDAT a _ c d e):ts) = let cl = length c in 
     if q == a && c == (take cl stack) then pdalcat (d, e++ (drop cl stack)) ts else Nothing
-pdarcat (translist, startstate, Just startindex) = pdalcat (startstate, [startindex]) translist
-pdarcat (translist, startstate, Nothing) = pdalcat (startstate, []) translist
+pdarcat (translist, startstate, startindex) = pdalcat (startstate, [startindex]) translist
+-- pdarcat (translist, startstate, Nothing) = pdalcat (startstate, []) translist
 
 pdalyield [] = []
 pdalyield (t@(PDAT _ b _ _ _):ts) = b : pdalyield ts
