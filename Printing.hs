@@ -33,6 +33,10 @@ class Show a => Texable a where
 instance Texable String where
     texify = id
 
+instance (Texable a, Texable b) => Texable [(a,b)] where
+    texify [] = ""
+    texify ((j,k):rest) = texify j ++ "\\quad" ++ texify k ++ "\\\\" ++ texify rest
+
 -- tree printing functions
 
 printTree :: Tree String -> IO ()
@@ -78,7 +82,7 @@ data VN = S | T | U | R | A | B | C | D | CP | VP | NP | VE | VI | V deriving (S
 -- terminals
 type VT = String
   
-{- -- not sure how this will work; the category of an LIG isn't nts...
+{- -- not sure how this will work; the category of an LIG isn't nts... well... could replace with a var "cat", and cat = (nts,[ind])
 class GF t y where
     category :: Tree t -> Maybe nts
     yield :: Tree t -> y
