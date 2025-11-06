@@ -89,11 +89,18 @@ cfgtoThree t@(CFT r ts) = Node ((show r) ++ '\n':catc ++ ": " ++ (concat (yieldc
 cfgtoThreeLatex t@(CFT r ts) = Node ((texify r) ++ "\\\\" ++ catc ++ ": " ++ (concat (yieldc t))) (map (cfgtoThreeLatex) ts)
         where catc = case categoryc t of {Just cat -> texify cat; Nothing -> "n/a"}
 
+-- need to clean this up... should prob create a data structure to be at each node, such as "cat" or "cat+yield" or "cat+yield+rule" or "rule+cat+yield+denote", etc
+-- these will just be triples or tuples or whatever, and they will have instances for show and texify
+-- that way i can just show/texify these trees directly
+
 denotec :: ((CFGRule nts ts) -> Term) -> (CFTree nts ts) -> Term
 denotec mu (CFT r daughters) = foldl' (\x -> \y -> eval (Ap x y)) (mu r) (map (denotec mu) daughters)
 
 cfgtoAllTree mu t@(CFT r ts) = Node ((show r) ++ '\n':catc ++ ": " ++ (concat (yieldc t)) ++ '\n':show (denotec mu t)) (map (cfgtoAllTree mu) ts)
         where catc = case categoryc t of {Just cat -> show cat; Nothing -> "n/a"}
+
+cfgtoAllLatex mu t@(CFT r ts) = Node ((texify r) ++ "\\\\" ++ catc ++ ": " ++ (concat (yieldc t)) ++ "\\\\" ++ texify (denotec mu t)) (map (cfgtoAllLatex mu) ts)
+        where catc = case categoryc t of {Just cat -> texify cat; Nothing -> "n/a"}
 
 cfgDerivedTree t@(CFT (Leafing a b) ts) = Node (show a) [Node (stringSpaces b) []]
 cfgDerivedTree t@(CFT (Branching _ _) ts) = Node (case categoryc t of {Just cat -> show cat; Nothing -> "n/a"}) (map cfgDerivedTree ts)
