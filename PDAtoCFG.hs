@@ -1,12 +1,14 @@
 module PDAtoCFG where
 
-import Prelude
+import Prelude hiding ((^))
 import Data.Tree
 
 import Printing
+import Lambdas
 import PDA
 import CFG
 
+-- still need to add bar symbols...
 data PDAtransNT st sy ind = PCStart | Sngp sy | Dblp st st | Trpp st ind st deriving Eq
 
 instance (Show st, Show sy, Show ind) => Show (PDAtransNT st sy ind) where
@@ -15,10 +17,10 @@ instance (Show st, Show sy, Show ind) => Show (PDAtransNT st sy ind) where
     show (Sngp a) = '[':show a ++ "]"
     show PCStart = "S"
 
-instance (Show st, Texable sy, Show ind) => Texable (PDAtransNT st sy ind) where
+instance (Show st, Show ind) => Texable (PDAtransNT st String ind) where
     texify (Trpp a b c) = "\\tripcat{" ++ show a ++ "}{" ++ show c ++ "}{" ++ show b ++ "}"
     texify (Dblp a b) = "\\tripcat{" ++ show a ++ "}{" ++ show b ++ "}{}"
-    texify (Sngp a) = '!':texify a
+    texify (Sngp a) = if a == "" then "" else '!':texify a
     texify PCStart = "S"
 
 -- these transitions are for pcg (greibach translation)
@@ -46,9 +48,9 @@ makeNTTrule (PDAT q u [i] q' []) = Leafing (Trpp q i q') [u]
 ----------------
 
 -- pcg is pda to cfg via "greibach" translation
--- pcg requires a starting stack symbol, so Just index
+-- pcg requires a starting stack symbol
 pcg :: (PDARun st sy ind) -> (CFTree (PDAtransNT st sy ind) sy)
-pcg (p, state, Just index) = let (t, s) = head $ pcgm p in
+pcg (p, state, index) = let (t, s) = head $ pcgm p in
     (CFT (Branching PCStart [Trpp state index s]) [t])
 
 -- pcgm is the recursive component of pcg
@@ -63,37 +65,28 @@ pcgm (tr@(PDAT q u [i] q' js):ts) = let (treelist, rank) = (pcgm ts, length js) 
 -- todo: still need to add semantic translations, also do examples to check
 
 -------------------
-makepcsrule tr@(PDAT q u [] q' []) x = Branching (Dblp q x) [Sngp u, Dblp q' x]
-makepcsrule tr@(PDAT q u [] q' [j]) x = Branching (Dblp q x) [Sngp u, Trpp q' j x]
-makepcsrule tr@(PDAT s v [i] s' []) x = Branching (Trpp s i x) [Sngp v, Dblp s' x]
-makepcscompose q s x i = Branching (Trpp q i x) [Dblp q s, Trpp s i x]
-makepcslex u = Leafing (Sngp u) [u]
-makepcsstart s d = Branching PCStart [Dblp s d]
+makepcmrule tr@(PDAT q u [] q' []) x 
+    | u == mempty = Branching (Dblp q x) [Dblp q' x]
+    | otherwise = Branching (Dblp q x) [Sngp u, Dblp q' x]
+makepcmrule tr@(PDAT q u [] q' [j]) x 
+    | u == mempty = Branching (Dblp q x) [Trpp q' j x]
+    | otherwise = Branching (Dblp q x) [Sngp u, Trpp q' j x]
+makepcmrule tr@(PDAT s u [i] s' []) x 
+    | u == mempty = Branching (Trpp s i x) [Dblp s' x]
+    | otherwise = Branching (Trpp s i x) [Sngp u, Dblp s' x]
+makepcmcompose q s x i = Branching (Trpp q i x) [Dblp q s, Trpp s i x]
+makepcmlextree u = if null u then [] else [CFT (Leafing (Sngp u) [u]) []]
+makepcmstart x = Branching PCStart [x]
 
--- pcs is the pda to cfg "sipser" translation
--- pcsh is the recursive part of pcs that accepts the denominator ('hole') as a second argument
-pcsh :: Eq ind => [PDATrans st sy ind] -> st -> CFTree (PDAtransNT st sy ind) sy
-pcsh [] s = CFT (Leafing (Dblp s s) []) []
-pcsh (tr@(PDAT q u [] q' []):ts) x = CFT (makepcsrule tr x) [CFT (makepcslex u) [], pcsh ts x]
-pcsh (tr@(PDAT q u [] q' [j]):ts) x = let (lf, pop@(PDAT s v [i] s' []), lb) = splitpath [j] ts in
-    if null lf
-        then CFT (makepcsrule tr x) [
-                CFT (makepcslex u) [], 
-                CFT (makepcsrule pop x) [
-                    CFT (makepcslex v) [],
-                    pcsh lb x
-                ]
-            ]
-        else CFT (makepcsrule tr x) [
-                CFT (makepcslex u) [], 
-                CFT (makepcscompose q' s x i) [ -- j should equal i if the code is right, so can use either j or i here
-                    pcsh lf s,
-                    CFT (makepcsrule pop x) [
-                        CFT (makepcslex v) [],
-                        pcsh lb x
-                    ]
-                ] 
-            ]
+-- pcm is the pda to cfg "sipser" translation
+-- pcm' is the recursive part of pcm that accepts the denominator ('hole') as a second argument
+-- pcm' :: (Eq st, Eq ind) => [PDATrans st sy ind] -> (PDAtransNT st sy ind) -> CFTree (PDAtransNT st sy ind) sy
+pcm' [] c@(Dblp s s') | s == s' = CFT (Leafing c []) []
+pcm' (tr@(PDAT q u [] q' []):ts) c@(Dblp w x) | q == w = CFT (makepcmrule tr x) ((makepcmlextree u) ++ [pcm' ts (Dblp q' x)])
+pcm' (tr@(PDAT q u [] q' [j]):ts) c@(Dblp w x) | q == w = CFT (makepcmrule tr x) ((makepcmlextree u) ++ [pcm' ts (Trpp q' j x)])
+pcm' (tr@(PDAT q u [i] q' []):ts) c@(Trpp w k x) | q == w && i == k = CFT (makepcmrule tr x) ((makepcmlextree u) ++ [pcm' ts (Dblp q' x)])
+pcm' p@(tr@(PDAT q u [] q' _):ts) c@(Trpp w k x) | q == w = let (lf, pop@(PDAT s v [i] s' []), lb) = splitpath [k] p in -- splitpath ensures k == i
+                CFT (makepcmcompose q s x i) [pcm' lf (Dblp q s), pcm' (pop:lb) (Trpp s i x)]
 
 splitpath :: Eq ind => [ind] -> [PDATrans st sy ind] -> ([PDATrans st sy ind], PDATrans st sy ind, [PDATrans st sy ind])
 -- splitpath [] (t:ts) = ([], t, ts)
@@ -102,16 +95,25 @@ splitpath inds (t@(PDAT _ _ [] _ [pushi]):ts) = let (f, m, b) = splitpath (pushi
 splitpath (i:is) (t@(PDAT _ _ [popi] _ []):ts)
     | (popi == i) = if (null is) then ([], t, ts) else let (f, m, b) = splitpath is ts in (t:f, m, b)
 
--- currently, pcs requires starting from an empty stack, so the starting stack symbol should be Nothing
-pcs :: (Eq st, Eq ind) => (PDARun st sy ind) -> CFTree (PDAtransNT st sy ind) sy
-pcs r@(p, s, Nothing) = let Just (d, []) = pdarcat r in CFT (makepcsstart) [pcsh p d]
+-- all PDAs now start with single stack symbol
+-- pcm :: (Eq st, Eq ind) => (PDARun st sy ind) -> CFTree (PDAtransNT st sy ind) sy
+pcm r@(p, s, i) = let Just (d, []) = pdarcat r in 
+    let startcat = (Trpp s i d) in 
+        CFT (makepcmstart startcat) [pcm' p startcat]
 
-pcsmu (trans, int) = undefined
+-- > latexTree $ cfgtoThreeLatex $ pcm pda3r1
 
+-- pcmmu will output a list of rules for a single transition. need to feed it a list of all possible cats
+pcmmu cats (trans, int) = [ (makepcmrule trans s, newint) | s <- cats]
+    where newint = if (symb trans == mempty)
+                    then k ^ x ^ k # (int # x)
+                    else g ^ k ^ x ^ k # (int # x)
 
--- cpbmu (rule, int) = let rk = rankc rule in (bupdaTrans rule, eval (bcomb # ((holdout rk) # (revlam rk int))))
--- iotacpb = idterm
+makemupcm (PDA sts syms inds _ q0 z0) mulist iota = (concatMap (pcmmu sts) mulist)  -- transition rules
+                                        ++ [(makepcmcompose q s s' i, x ^ y ^ z ^ y # (x # z)) | q <- sts, s <- sts, s' <- sts, i <- inds] -- compose rules
+                                        ++ [(Leafing (Dblp s s) [], idterm) | s <- sts]  -- empty rules
+                                        ++ [(Leafing (Sngp u) [u], idterm) | u <- syms]  -- lexical rules
+                                        ++ [(Branching PCStart [(Trpp q0 z0 s)], k ^ k # iota) | s <- sts]  -- start rules
 
--- makemucpb startsym mulist = lookupint (map cpbmu mulist ++ [(PDAT () mempty [Reg startsym, Addedone] () [], lowerid)])
-
--- mucpbl1 = makemucpb CP mucfg1list
+pcmpda3mu = lookupint $ makemupcm pda3 mupda3list iotapda3
+-- > latexTree $ cfgtoAllLatex pcmpda3mu (pcm pda3r1)
