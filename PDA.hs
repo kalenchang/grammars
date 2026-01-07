@@ -55,7 +55,7 @@ iotapda2 = idterm
 
 pda2lr1 = [pda2t1, pda2t2, pda2t3, pda2t4]
 
--- pda3: an bn
+-- pda3: wwR
 pda3t1 = PDAT 1 "a" [] 1 [A]
 pda3t2 = PDAT 1 "b" [] 1 [B]
 pda3t3 = PDAT 1 "" [] 2 []
@@ -135,17 +135,22 @@ pdallog (q, stack) taken (t:ts) = let updated = taken ++ [t] in
 
 -- ghci> pdallog (1,[Z]) [] pdal1
 
-pdarshow (l, q, st) = pdallog (q, st) [] l
+-- pdarshow :: (Eq st, Eq ind) => ([PDATrans st sy ind], st, ind) -> [(PDATrans st sy ind, Maybe (st, [ind]), [sy])]
+pdarshow (l, q, st) = pdallog (q, [st]) [] l
 
 pdartoTex run@(l, q, st) = let log = pdarshow run in
     let texit = \(t, cat, yd) -> "\\\\\n" ++ texify t ++ "  &  " ++ (case cat of {Just (q, st) -> showstate q ++ showstack st; Nothing -> "n/a"}) ++ "  &  " ++ concat yd in
-        putStrLn ("\n\\begin{tabular}{lll}\n Start   &  " ++ showstate q ++ showstack st ++ "  &  " ++ concatMap texit log ++ "\n\\end{tabular}\n")
+        putStrLn ("\n\\begin{tabular}{lll}\n Start   &  " ++ showstate q ++ showstack [st] ++ "  &  " ++ concatMap texit log ++ "\n\\end{tabular}\n")
 
 pdallogden mu iota (q, stack) _ [] = []
 pdallogden mu iota (q, stack) taken (t:ts) = let updated = taken ++ [t] in 
     (t, pdalcat (q, stack) updated, pdalyield updated, denotep mu iota updated) : (pdallogden mu iota (q, stack) updated ts)
 
-pdallogdentex run@(l, q, st, mu, iota) = let log = pdallogden mu iota (q, st) [] l in
-    let texit = \(t, cat, yd, den) -> "\\\\\n" ++ texify t ++ "  &  " ++ (case cat of {Just (q, st) -> showstate q ++ showstack st; Nothing -> "n/a"}) ++ "  &  " ++ concat yd ++ " & " ++ texify den in
-        putStrLn ("\n\n\\begin{tabular}{llll}\n Start   &  " ++ showstate q ++ showstack st ++ "  &  " ++ " & " ++ texify iota ++ concatMap texit log ++ "\n\\end{tabular}\n\n")
+-- pdallogdentex :: (Eq st, Eq ind, Show st, Show ind) => ([PDATrans st sy ind], st, [ind]) -> (PDATrans st sy ind -> Term) -> Term -> IO ()
+pdallogdentex run@(l, q, i) mu iota = let log = pdallogden mu iota (q, [i]) [] l in
+    let texit = \(t, cat, yd, den) -> "\\\\\n" ++ texify t ++ "  &  " ++ (case cat of {Just (q, stack) -> showstate q ++ showstack stack; Nothing -> "n/a"}) ++ "  &  " ++ concat yd ++ " & " ++ texify den in
+        putStrLn ("\n\n\\begin{tabular}{llll}\n Start   &  " ++ showstate q ++ showstack [i] ++ "  &  " ++ " & " ++ texify iota ++ concatMap texit log ++ "\n\\end{tabular}\n\n")
 
+pdatoTex (PDA q sigma gamma delta q0 z0) = putStrLn $ "\n$(" ++ concatMap bracketize [show q, show sigma, show gamma] ++ "\\delta, " 
+                                                ++ show q0 ++ ", " ++ show z0 ++ ")$, where $\\delta = \\{" ++ concatMap (\x -> "\\hlm{" ++ texify x ++ "},") delta ++ "\\}$\n"
+bracketize s = "\\{" ++ s ++ "\\}, "
