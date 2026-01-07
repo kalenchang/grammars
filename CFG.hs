@@ -102,6 +102,8 @@ cfgtoAllTree mu t@(CFT r ts) = Node ((show r) ++ '\n':catc ++ ": " ++ (concat (y
 cfgtoAllLatex mu t@(CFT r ts) = Node ((texify r) ++ "\\\\" ++ catc ++ ": " ++ (concat (yieldc t)) ++ "\\\\" ++ texify (denotec mu t)) (map (cfgtoAllLatex mu) ts)
         where catc = case categoryc t of {Just cat -> texify cat; Nothing -> "n/a"}
 
+cfgtoDenLatex mu t@(CFT r ts) = Node ((texify r) ++ "\\\\" ++ texify (denotec mu t)) (map (cfgtoDenLatex mu) ts)
+
 cfgDerivedTree t@(CFT (Leafing a b) ts) = Node (show a) [Node (stringSpaces b) []]
 cfgDerivedTree t@(CFT (Branching _ _) ts) = Node (case categoryc t of {Just cat -> show cat; Nothing -> "n/a"}) (map cfgDerivedTree ts)
 
