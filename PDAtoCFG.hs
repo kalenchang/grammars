@@ -67,21 +67,25 @@ makeNTTrule (PDAT q u [i] q' []) = Leafing (Trpp q i q' False) [u]
 -- NEW PCT: pct' has type P(A) -> [D(G)]
 -- pct is pda to cfg via top down "ungreibach" translation
 -- pct requires a starting stack symbol
-pct :: (PDARun st sy ind) -> (CFTree (PDAtransNT st sy ind) sy)
-pct (p, state, index) = let (t, s) = head $ pct' p in
-    (CFT (Branching PCStart [Trpp state index s False]) [t])
+pct :: (Eq st, Eq ind) => (PDARun st sy ind) -> (CFTree (PDAtransNT st sy ind) sy)
+pct (p, state, index) = (CFT (Branching PCStart [Trpp state index x False]) [head $ pct' p])
+    where Just (x, []) = pdarcat (p, state, index)
 
 -- pct' is the recursive component of pct
--- [c] ensures that each transition pops exactly one index, and errors otherwise
-pct' :: [PDATrans st sy ind] -> [(CFTree (PDAtransNT st sy ind) sy, st)]
+-- [i] ensures that each transition pops exactly one index, and errors otherwise
+pct' :: [PDATrans st sy ind] -> [CFTree (PDAtransNT st sy ind) sy]
 pct' [] = []
-pct' (tr@(PDAT q u [i] q' []):ts) = (CFT (makeNTTrule tr) [], q'):(pct' ts)
+pct' (tr@(PDAT q u [i] q' []):ts) = (CFT (makeNTTrule tr) []):(pct' ts)
 pct' (tr@(PDAT q u [i] q' js):ts) = let (treelist, rank) = (pct' ts, length js) in
     let (lf, lb) = (take rank treelist, drop rank treelist) in
-    (CFT (makeNTrule tr (map snd lf)) ((CFT (makeTrule u) []):(map fst lf)), snd $ last lf):lb
+    (CFT (makeNTrule tr (map denom lf)) ((CFT (makeTrule u) []):lf)):lb
 
+denom (CFT (Branching (Trpp _ _ x _) _) _) = x
+denom (CFT (Leafing (Trpp _ _ x _) _) _) = x
 
 -------------------
+-- PCM SECTION: pda to cfg, max one
+
 makepcmrule tr@(PDAT q u [] q' []) x bar
     | u == mempty = Branching (Dblp q x bar) [Dblp q' x False]
     | otherwise = Branching (Dblp q x bar) [Sngp u, Dblp q' x False]
