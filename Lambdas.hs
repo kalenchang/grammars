@@ -135,6 +135,19 @@ revlam n t = revlam' n t id
 revlam' 0 t f = f t
 revlam' n (Lm v b) f = revlam' (n-1) b (\x -> Lm v (f x))
 
+-- f is the original mu, x is the daughter to toss (lexical), y is for func comp
+-- pctterm 0 = f ^ x ^ y ^ f # y
+-- pctterm 1 = f ^ x ^ x_1 ^ y ^ x_1 # (f # y)
+-- pctterm 2 = f ^ x ^ x_1 ^ x_2 ^ y ^ x_2 # (x_1 # (f # y))
+
+pctterm n = f ^ (revlam (n+2) (y ^ (pcttermfst n (pcttermsec n))))
+
+pcttermfst 0 rest = x ^ rest
+pcttermfst n rest = Lm (VC n "x") (pcttermfst (n-1) rest)
+
+pcttermsec 0 = f # y
+pcttermsec n = Var (VC n "x") # (pcttermsec $ n-1)
+
 
 -- todo: i think i need to figure out how to convert these lambda terms to haskell functions, so that
 --      i can evaluate things like arithmetic or tree building or string concat or list building, because
