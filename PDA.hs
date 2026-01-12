@@ -55,7 +55,7 @@ iotapda2 = idterm
 
 pda2lr1 = [pda2t1, pda2t2, pda2t3, pda2t4]
 
--- pda3: wwR
+-- pda3: wwR (max one)
 pda3t1 = PDAT 1 "a" [] 1 [A]
 pda3t2 = PDAT 1 "b" [] 1 [B]
 pda3t3 = PDAT 1 "" [] 2 []
@@ -77,6 +77,27 @@ mupda3list = [
     (pda3t6, idterm)]
 mupda3 = lookupint mupda3list
 iotapda3 = no'
+
+-- pda4: wwR (pop one) technically only need 1 state, but that would make the tree boring right?
+pda4t1 = PDAT 1 "a" [C] 1 [C,A]
+pda4t2 = PDAT 1 "b" [C] 1 [C,B]
+pda4t3 = PDAT 1 "" [C] 2 []
+pda4t4 = PDAT 2 "a" [A] 2 []
+pda4t5 = PDAT 2 "b" [B] 2 []
+
+pda4 = PDA [1,2] ["a","b"] [A,B,C] [pda4t1,pda4t2,pda4t3,pda4t4,pda4t5] 1 C
+
+pda4l1 = [pda4t1, pda4t1, pda4t2, pda4t3, pda4t5, pda4t4, pda4t4]
+pda4r1 = (pda4l1, 1, C)
+
+mupda4list = [
+    (pda4t1, up'),
+    (pda4t2, flr'),
+    (pda4t3, idterm),
+    (pda4t4, up'),
+    (pda4t5, flr')]
+mupda4 = lookupint mupda4list
+iotapda4 = no'
 
 -- takes index i off of top of stack s
 -- stripind :: Eq a => a -> Maybe [a] -> Maybe [a]
