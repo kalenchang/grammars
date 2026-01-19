@@ -134,25 +134,26 @@ cfg2t1 = CFT cfg2r1 [
 
 
 -- cfg3: arithmetic expressions
-cfg3r1 = Branching S [S, T, S]
-cfg3r2 = Leafing S ["1"]
-cfg3r3 = Leafing S ["2"]
-cfg3r4 = Leafing S ["3"]
-cfg3r5 = Leafing T ["+"]
-cfg3r6 = Leafing T ["x"]
+cfg3r1 = Branching S [S, R, S]
+cfg3r2 = Leafing N ["1"]
+cfg3r3 = Leafing N ["2"]
+cfg3r4 = Leafing N ["3"]
+cfg3r5 = Leafing R ["+"]
+cfg3r6 = Leafing R ["x"]
+cfg3r7 = Branching S [N]
 
 cfg3t1 = CFT cfg3r1 [
             CFT cfg3r1 [
-                CFT cfg3r3 [],
+                CFT cfg3r7 [CFT cfg3r3 []],
                 CFT cfg3r6 [],
                 CFT cfg3r1 [
-                    CFT cfg3r3 [],
+                    CFT cfg3r7 [CFT cfg3r3 []],
                     CFT cfg3r5 [],
-                    CFT cfg3r4 []
+                    CFT cfg3r7 [CFT cfg3r4 []]
                 ]
             ],
             CFT cfg3r5 [],
-            CFT cfg3r2 []
+            CFT cfg3r7 [CFT cfg3r2 []]
         ]
 
 mucfg3list = [(cfg3r1, binop),
@@ -160,13 +161,15 @@ mucfg3list = [(cfg3r1, binop),
             (cfg3r3, n2'),
             (cfg3r4, n3'),
             (cfg3r5, plus'),
-            (cfg3r6, times')]
+            (cfg3r6, times'),
+            (cfg3r7, idterm)]
 
 mucfg3 = lookupint mucfg3list
 
 -- LEFT RECURSION ELIMINATION
 
 -- 0 for original categories, 1 for primed categories, 2 for terminal categories
+-- new version: 2 no longer exists; just assume the source grammar has no rules of L -> a, where L in elims (left recursion cat)
 lre :: (Monoid ts, Eq nts) => [nts] -> CFTree nts ts -> CFTree (nts, Int) ts
 lre _ (CFT (Leafing a [b]) []) = CFT (Leafing (a,0) [b]) []
 lre elims (CFT (Branching a blist@(b:bs)) dlist@(dl:ds))
@@ -174,16 +177,14 @@ lre elims (CFT (Branching a blist@(b:bs)) dlist@(dl:ds))
     | a `elem` elims = CFT (Branching (a,0) $ (map (,0) blist)++[(a,1)]) $ (map (lre elims) dlist)++[CFT (Leafing (a,1) [mempty]) []]
     | otherwise = CFT (Branching (a,0) (map (,0) blist)) $ map (lre elims) dlist
 
--- presently, assume that 
+-- presently, assume that L does not have any leaf rules
 lre' :: (Monoid ts, Eq nts) => [nts] -> CFTree nts ts -> CFTree (nts, Int) ts ->  CFTree (nts, Int) ts
-lre' elims (CFT (Leafing a [b]) []) dr = CFT (Branching (a,0) [(a,2),(a,1)]) [CFT (Leafing (a,2) [b]) [],dr]
+-- lre' elims (CFT (Leafing a [b]) []) dr = CFT (Branching (a,0) [(a,2),(a,1)]) [CFT (Leafing (a,2) [b]) [],dr]
 lre' elims (CFT (Branching a blist@(b:bs)) dlist@(dl:ds)) dr
     | a == b = lre' elims dl (CFT (Branching (a,1) $ (map (,0) bs)++[(a,1)]) $ (map (lre elims) ds) ++ [dr])
-    | otherwise = CFT (Branching (a,0) $ (map (,0) bs)++[(a,1)]) $ (map (lre elims) ds) ++ [dr]
+    | otherwise = CFT (Branching (a,0) $ (map (,0) blist)++[(a,1)]) $ (map (lre elims) dlist) ++ [dr]
 
-lremu elims (Leafing a [b], int) 
-    | a `elem` elims = (Leafing (a,2) [b], int)
-    | otherwise = (Leafing (a,0) [b], int)
+lremu elims (Leafing a [b], int) = (Leafing (a,0) [b], int)
 lremu elims (Branching a blist@(b:bs), int)
     | a `elem` elims && a == b = (Branching (a,1) $ (map (,0) bs)++[(a,1)], lreloop (length bs) # int)
     | a `elem` elims = (Branching (a,0) $ (map (,0) blist)++[(a,1)], lreend (length blist) # int)
@@ -191,8 +192,9 @@ lremu elims (Branching a blist@(b:bs), int)
 
 
 makemulre elims mulist = lookupint (map (lremu elims) mulist ++ 
-                                    map (\x -> (Leafing (x,1) [mempty], idterm)) elims ++ 
-                                    map (\x -> (Branching (x,0) [(x,2),(x,1)], lfa)) elims)
+                                    map (\x -> (Leafing (x,1) [mempty], idterm)) elims) -- ++ 
+                                    -- map (\x -> (Branching (x,0) [(x,2),(x,1)], lfa)) elims
 
+-- don't know why, but Haskell assumes it's (VN, Integer) unless I specify Int...
 mucfg3' :: CFGRule (VN, Int) String -> Term
 mucfg3' = makemulre [S] mucfg3list
