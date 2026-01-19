@@ -85,7 +85,7 @@ show_term term depth = showt term
    showt' term = show_term term (depth - 1)
 
 instance Show Term where
-   show term = show_term term 10
+   show term = show_term term 30
 
 ------- new stuff
 instance Texable VarName where
@@ -120,8 +120,10 @@ rfa = x ^ y ^ x # y
 funccomp = x ^ y ^ z ^ x # (y # z)
 bcomb = f ^ g ^ k ^ g # (f # k)
 lowerid = g ^ g # (idterm)
+binop = x ^ y ^ z ^ y # x # z
 
 [mary', john', let', run', swim', up', flr', no'] = map make_var ["m", "j", "let", "run", "swim", "up", "flr", "no"]
+[n1', n2', n3', plus', times'] = map make_var ["1", "2", "3", "+", "*"]
 
 -- holdout n lambda arguments
 holdout :: Int -> Term
@@ -148,6 +150,24 @@ pcttermfst n rest = Lm (VC n "x") (pcttermfst (n-1) rest)
 pcttermsec 0 = f # y
 pcttermsec n = Var (VC n "x") # (pcttermsec $ n-1)
 
+
+-- lreloop 0 = f ^ k ^ x ^ k # (f # x)
+-- lreloop 1 = f ^ p ^ k ^ x ^ k # (f # x # p)
+-- lreloop 2 = f ^ p ^ q ^ k ^ x ^ k # (f # x # p # q)
+
+lreloop n = f ^ (revlam n (lreendfst n (k ^ y ^ (k # (lreendsnd n (f # y))))))
+
+-- lreend 0 = f ^ k ^ k # f
+-- lreend 1 = f ^ p ^ k ^ k # (f # p)
+-- lreend 2 = f ^ p ^ q ^ k ^ k # (f # p # q)
+
+lreend n = f ^ (revlam n (lreendfst n (k ^ (k # (lreendsnd n f)))))
+
+lreendfst 0 rest = rest
+lreendfst n rest = Lm (VC n "x") (lreendfst (n-1) rest)
+
+lreendsnd 0 f = f
+lreendsnd n f = (lreendsnd (n-1) f) # Var (VC n "x")
 
 -- todo: i think i need to figure out how to convert these lambda terms to haskell functions, so that
 --      i can evaluate things like arithmetic or tree building or string concat or list building, because
