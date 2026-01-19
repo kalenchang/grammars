@@ -33,9 +33,15 @@ class Show a => Texable a where
 instance Texable String where
     texify = id
 
+instance Texable VN where
+    texify = show
+
 instance (Texable a, Texable b) => Texable [(a,b)] where
     texify [] = ""
     texify ((j,k):rest) = texify j ++ "\\quad" ++ texify k ++ "\\\\" ++ texify rest
+
+instance (Texable a) => Texable (a, Int) where
+    texify (a,n) = texify a ++ replicate n '\''
 
 -- tree printing functions
 
@@ -77,7 +83,7 @@ drawLatex (Node x ts0) = lines ("[{"++(x)++"}") ++ drawSubTrees ts0 ++ ["]"]
 
 -------- basic categories ---------
 -- nonterminals
-data VN = S | T | U | R | A | B | C | D | CP | VP | NP | VE | VI | V deriving (Show, Eq)
+data VN = S | T | U | R | A | B | C | D | CP | VP | NP | VE | VI | V | N deriving (Show, Eq)
 
 -- terminals
 type VT = String
