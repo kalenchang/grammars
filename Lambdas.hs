@@ -121,9 +121,10 @@ funccomp = x ^ y ^ z ^ x # (y # z)
 bcomb = f ^ g ^ k ^ g # (f # k)
 lowerid = g ^ g # (idterm)
 binop = x ^ y ^ z ^ y # x # z
+posslink = x ^ y ^ z ^ z # x
 
-[mary', john', let', run', swim', up', flr', no'] = map make_var ["m", "j", "let", "run", "swim", "up", "flr", "no"]
-[n1', n2', n3', plus', times'] = map make_var ["1", "2", "3", "+", "*"]
+[mary', john', let', run', swim', up', flr', no', neighbor'] = map make_var ["m", "j", "let", "run", "swim", "up", "flr", "no", "nb"]
+[n1', n2', n3', plus', times', minus'] = map make_var ["1", "2", "3", "+", "*", "-"]
 
 -- holdout n lambda arguments
 holdout :: Int -> Term
