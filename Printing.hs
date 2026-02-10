@@ -18,10 +18,13 @@ stringSpaces :: [String] -> String
 stringSpaces [] = "\\ep"
 stringSpaces [""] = "\\ep"
 stringSpaces [x] = x
-stringSpaces (x:xs) = ' ':(x ++ stringSpaces xs)
+stringSpaces (x:xs) = (x ++ ' ':stringSpaces xs)
 
 combine :: ([a], [a]) -> [a]
 combine (x,y) = x++y
+
+showstack :: (Show a) => [a] -> String
+showstack s = "[" ++ insertSpaces s ++ "]"
 
 -- latex type
 type Latex = String
@@ -31,10 +34,33 @@ class Show a => Texable a where
     texify = show
 
 instance Texable String where
-    texify = id
+    -- texify "trace" = "\\ml{t}"
+    texify x = x
 
 instance Texable VN where
-    texify = show
+    texify VE = "V\\tul{E}"
+    texify VI = "V\\tul{I}"
+    texify VT = "V\\tul{T}"
+    texify WH = "\\ml{wh}P"
+    -- texify TR = "\\ml{t}"
+    texify DPT = "DP\\tul{\\ml{t}}"
+    texify WHH = "\\ml{wh}P\\tul{hum}"
+    texify WHN = "\\ml{wh}P\\tul{non}"
+    texify x = show x
+
+instance Texable VII where
+    texify W = "w"
+    texify I = "I"
+    texify Nom = "N"
+    texify Acc = "A"
+    texify Hum = "H"
+    texify Non = "N"
+
+instance Texable [VII] where
+    texify x = "[" ++ texifySpaces x ++ "]"
+
+-- instance Texable [VN] where
+--     texify x = texifySpaces x
 
 instance (Texable a, Texable b) => Texable [(a,b)] where
     texify [] = ""
@@ -83,10 +109,17 @@ drawLatex (Node x ts0) = lines ("[{"++(x)++"}") ++ drawSubTrees ts0 ++ ["]"]
 
 -------- basic categories ---------
 -- nonterminals
-data VN = S | T | U | R | A | B | C | D | CP | VP | NP | VE | VI | V | N deriving (Show, Eq)
+data VN = S | T | U | R 
+            | A | B | C | D 
+            | CP | DP | DPT 
+            | NP | N | Pos | Name 
+            | VP | VE | VI | V | VT 
+            | WH | WHA | WHN | WHH deriving (Show, Eq)
 
 -- terminals
 type VT = String
+
+data VII = W | I | Nom | Acc | Hum | Non deriving (Show, Eq)
   
 {- -- not sure how this will work; the category of an LIG isn't nts... well... could replace with a var "cat", and cat = (nts,[ind])
 class GF t y where
