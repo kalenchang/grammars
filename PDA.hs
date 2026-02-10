@@ -24,9 +24,6 @@ instance (Show st, Show ind) => Texable (PDATrans st String ind) where
 showstate :: (Show a) => a -> String
 showstate = \x -> let out = show x in if out == "()" then "\\ap" else out
 
-showstack :: (Show a) => [a] -> String
-showstack s = "[" ++ insertSpaces s ++ "]"
-
 type PDARun st sy ind = ([PDATrans st sy ind], st, ind)
 
 data PDA st sy ind = PDA {q :: [st], sigma :: [sy], gamma :: [ind], delta :: [PDATrans st sy ind], q0 :: st, z0 :: ind}
