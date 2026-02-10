@@ -108,6 +108,9 @@ cfgtoDenLatex mu t@(CFT r ts) = Node ((texify r) ++ "\\\\" ++ texify (denotec mu
 cfgDerivedTree t@(CFT (Leafing a b) ts) = Node (show a) [Node (stringSpaces b) []]
 cfgDerivedTree t@(CFT (Branching _ _) ts) = Node (case categoryc t of {Just cat -> show cat; Nothing -> "n/a"}) (map cfgDerivedTree ts)
 
+cfgDerivedLatex t@(CFT (Leafing a b) ts) = Node (texify a) [Node (texifySpaces b) []]
+cfgDerivedLatex t@(CFT (Branching _ _) ts) = Node (case categoryc t of {Just cat -> texify cat; Nothing -> "n/a"}) (map cfgDerivedLatex ts)
+
 -- cfgtoTexTree t@(CFT r ts) = Node ((texify r) ++ "\\" ++ )
 
 -- can make a type for greibach rules/trees
@@ -141,6 +144,7 @@ cfg3r4 = Leafing N ["3"]
 cfg3r5 = Leafing R ["+"]
 cfg3r6 = Leafing R ["x"]
 cfg3r7 = Branching S [N]
+cfg3r8 = Leafing R ["-"]
 
 cfg3t1 = CFT cfg3r1 [
             CFT cfg3r1 [
@@ -156,13 +160,34 @@ cfg3t1 = CFT cfg3r1 [
             CFT cfg3r7 [CFT cfg3r2 []]
         ]
 
+cfg3t2 = CFT cfg3r1 [
+            CFT cfg3r1 [
+                CFT cfg3r7 [CFT cfg3r2 []],
+                CFT cfg3r8 [],
+                CFT cfg3r7 [CFT cfg3r2 []]
+            ],
+            CFT cfg3r8 [],
+                CFT cfg3r7 [CFT cfg3r2 []]
+        ]
+
+cfg3t3 = CFT cfg3r1 [
+            CFT cfg3r7 [CFT cfg3r2 []],
+            CFT cfg3r8 [],
+            CFT cfg3r1 [
+                CFT cfg3r7 [CFT cfg3r2 []],
+                CFT cfg3r8 [],
+                CFT cfg3r7 [CFT cfg3r2 []]
+            ]
+        ]
+
 mucfg3list = [(cfg3r1, binop),
             (cfg3r2, n1'),
             (cfg3r3, n2'),
             (cfg3r4, n3'),
             (cfg3r5, plus'),
             (cfg3r6, times'),
-            (cfg3r7, idterm)]
+            (cfg3r7, idterm),
+            (cfg3r8, minus')]
 
 mucfg3 = lookupint mucfg3list
 
@@ -198,3 +223,44 @@ makemulre elims mulist = lookupint (map (lremu elims) mulist ++
 -- don't know why, but Haskell assumes it's (VN, Integer) unless I specify Int...
 mucfg3' :: CFGRule (VN, Int) String -> Term
 mucfg3' = makemulre [S] mucfg3list
+
+-- > latexTree $ cfgtoAllLatex mucfg3 (cfg3t1)
+
+cfg4r1 = Branching S [NP, VP]
+cfg4r2 = Branching NP [NP, Pos, N]
+cfg4r3 = Branching VP [VI]
+cfg4r4 = Leafing Name [" John"]
+cfg4r5 = Leafing Pos ["'s"]
+cfg4r6 = Leafing N [" neighbor"]
+cfg4r7 = Leafing VI [" ran"]
+cfg4r8 = Branching NP [Name]
+
+cfg4t1 = CFT cfg4r1 [
+            CFT cfg4r2 [
+                CFT cfg4r2 [
+                    CFT cfg4r8 [CFT cfg4r4 []],
+                    CFT cfg4r5 [],
+                    CFT cfg4r6 []
+                ],
+                CFT cfg4r5 [],
+                CFT cfg4r6 []
+            ],
+            CFT cfg4r3 [
+                CFT cfg4r7 []
+            ]
+        ]
+
+mucfg4list = [(cfg4r1, lfa),
+            (cfg4r2, binop),
+            (cfg4r3, idterm),
+            (cfg4r4, john'),
+            (cfg4r5, lfa),
+            (cfg4r6, neighbor'),
+            (cfg4r7, run'),
+            (cfg4r8, idterm)]
+mucfg4 = lookupint mucfg4list
+mucfg4' :: CFGRule (VN, Int) String -> Term
+mucfg4' = makemulre [NP] mucfg4list
+
+-- > latexTree $ cfgtoAllLatex mucfg4 cfg4t1
+-- > 
