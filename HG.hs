@@ -14,6 +14,12 @@ instance (Show nts, Show ts) => Show (HGRule nts ts) where
     show (Wrap a b c) = show a ++ " -W-> " ++ show b ++ ' ':(show c)
     show (Leafh a b c) = show a ++ " --> " ++ concat (map show b) ++ ";" ++ concat (map show c)
 
+instance (Texable nts, Texable ts) => Texable (HGRule nts ts) where
+    texify (Concat a b c d) = texify a ++ " \\concar{" ++ show (length b + 1) ++ "} " ++ texifySpaces b ++ ' ':(texify c) ++ texifySpaces d
+    texify (Wrap a b c) = texify a ++ " \\wrapar{} " ++ texify b ++ ' ':(texify c)
+    texify (Leafh a b c) = texify a ++ " \\ra{} " ++ (stringSpaces (map texify b)) ++ "\\hgs{}" ++ (stringSpaces (map texify c))
+
+
 -- hg grammars
 newtype HG = HG ([VN], [VT], VN, [HGRule VN VT])
 
@@ -77,6 +83,8 @@ hgconcat (l:ls) (t:ts) = let (s1, s2) = hgconcat ls ts in (combine (yieldh t) ++
 -- combine2 :: Show ts => ([ts], [ts]) -> String
 combine2 (x,y) = concat (map show x)++';':concat (map show y)
 
+combine2tex (x,y) = stringSpaces x ++ " \\hgs{}" ++  stringSpaces y
+
 -- show an HG tree using only its rule label
 -- hgtoYieldTree :: Show ts => HGTree nts ts -> Tree String
 hgtoYieldTree t@(HGT r ts) = Node (combine2 $ yieldh t) (map hgtoYieldTree ts)
@@ -104,3 +112,33 @@ hgtoRuleTree (HGT r l) = Node (show r) (map hgtoRuleTree l)
 -- hgtoAllTree :: (Show nts, Show ts, Eq nts) => HGTree nts ts -> Tree String
 hgtoAllTree t@(HGT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (combine2 $ yieldh t)) (map hgtoAllTree ts)
         where cat = case categoryh t of {Just cat -> show cat; Nothing -> "n/a"}
+
+hgtoAllLatex t@(HGT r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (combine2tex $ yieldh t)) (map hgtoAllLatex ts)
+        where cat = case categoryh t of {Just cat -> texify cat; Nothing -> "n/a"}
+
+
+--------------------
+-- hg4: swiss german/dutch cross-serial dependencies
+
+hg4r1 = Concat CP [NP] VP []
+hg4r2 = Wrap VP CP VE
+hg4r3 = Concat VP [] VI []
+hg4r4 = Leafh NP [] ["Jan"]
+hg4r5 = Leafh NP [] ["Piet"]
+hg4r6 = Leafh NP [] ["children"]
+hg4r7 = Leafh VI [] ["swim"]
+hg4r8 = Leafh VE [] ["help"]
+hg4r9 = Leafh VE [] ["let"]
+
+hg4t1 = HGT hg4r1 [
+            HGT hg4r4 [],
+            HGT hg4r2 [
+                HGT hg4r1 [
+                    HGT hg4r5 [],
+                    HGT hg4r3 [
+                        HGT hg4r7 []
+                    ]
+                ],
+                HGT hg4r8 []
+            ]
+        ]
