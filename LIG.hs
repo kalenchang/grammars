@@ -28,11 +28,18 @@ data LIGRule nts ts ind = Branch {mother :: nts, lefts :: [nts], daughter :: nts
 
 
 instance (Show nts, Show ts, Show ind) => Show (LIGRule nts ts ind) where
-    show (Branch a b c d e) = let (s1, s2) = case e of {NoChange -> ("[..] ->","[..]"); 
-                                                          Push i -> ("[..] ->","[" ++ (show i) ++ "..]");
-                                                          Pop i -> ("[" ++ (show i) ++ "..] ->","[..]")} in
+    show (Branch a b c d e) = let (s1, s2) = case e of {NoChange -> ("[] ->","[]"); 
+                                                          Push i -> ("[] ->","[" ++ (show i) ++ "]");
+                                                          Pop i -> ("[" ++ (show i) ++ "] ->","[]")} in
             (show a) ++ s1 ++ (insertSpaces b) ++ ' ':(show c) ++ s2 ++ (insertSpaces d)
     show (Leaf a b) = (show a) ++ "[] -> " ++ concat (map show b)
+
+instance (Texable nts, Texable ts, Texable ind) => Texable (LIGRule nts ts ind) where
+    texify (Branch a b c d e) = let (s1, s2) = case e of {NoChange -> ("[] \\ra{} ","[] "); 
+                                                          Push i -> ("[] \\ra{} ","[" ++ (texify i) ++ "] ");
+                                                          Pop i -> ("[" ++ (texify i) ++ "] \\ra{} ","[] ")} in
+            texify a ++ s1 ++ texifySpaces b ++ ' ':(texify c) ++ s2 ++ texifySpaces d
+    texify (Leaf a b) = (texify a) ++ "[] \\ra{} " ++ texifySpaces b
 
 newtype LIG = LIG ([VN], [VT], [VI], VN, [LIGRule VN VT VI])
 
@@ -226,7 +233,11 @@ ligtoYieldTree t@(LIT r ts) = Node (concat (map show (yield t))) (map ligtoYield
 ligtoAllTree t@(LIT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (concat (map show (yield t)))) (map ligtoAllTree ts)
         where cat = case category t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
 
-ligtoAllTree' t@(LIT r ts) = Node ((show r) ++ '\n':cat ) (map ligtoAllTree' ts)
+-- ligtoAllLatex :: (Texable nts, Texable ts, Eq nts, Texable ind, Eq ind) => LITree nts ts ind -> Tree String
+ligtoAllLatex t@(LIT r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (texifySpaces (yield t))) (map ligtoAllLatex ts)
+        where cat = case category t of {Just (cat,stack) -> texify cat ++ texify stack; Nothing -> "n/a"}
+
+ligtoTwoTree t@(LIT r ts) = Node ((show r) ++ '\n':cat ) (map ligtoTwoTree ts)
         where cat = case category t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
 
 
@@ -307,6 +318,75 @@ lig3t2 = LIT lig3r1 [
                                     LIT lig3r2 [
                                         LIT lig3r5 [],
                                         LIT lig3r3 []
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+-------------------
+-- lig4: multiple wh-movement
+
+lig4r1 = Branch VP [] VT [DP] (NoChange)
+lig4r2 = Branch VP [] VT [DPT] (Pop I)
+lig4r2H = Branch VP [] VT [DPT] (Pop Hum)
+lig4r2N = Branch VP [] VT [DPT] (Pop Non)
+lig4r3 = Branch VP [VE] CP [] (NoChange)
+lig4r4 = Branch CP [DP] VP [] (NoChange)
+lig4r5 = Branch CP [DPT] VP [] (Pop I)
+lig4r5H = Branch CP [DPT] VP [] (Pop Hum)
+lig4r5N = Branch CP [DPT] VP [] (Pop Non)
+lig4r6 = Branch CP [WH] CP [] (Push I)
+lig4r6H = Branch CP [WHH] CP [] (Push Hum)
+lig4r6N = Branch CP [WHN] CP [] (Push Non)
+
+lig4r7 x = Leaf DP [x]
+lig4r8 x = Leaf VT [x]
+lig4r9 x = Leaf VE [x]
+lig4r10 x = Leaf WH [x]
+-- lig4r10 = Leaf WH ["who"]
+lig4r10H = Leaf WHH ["who"]
+lig4r10N = Leaf WHN ["what"]
+lig4r11 = Leaf DPT ["\\ml{t}"]
+
+lig4r7j = Leaf DP ["John"]
+lig4r7m = Leaf DP ["Mary"]
+lig4r8s = Leaf VT ["saw"]
+lig4r8b = Leaf VT ["met"]
+lig4r9s = Leaf VE ["say"]
+lig4r9k = Leaf VE ["know"]
+
+-- John saw Mary
+lig4t1 :: LITree VN VT VII
+lig4t1 = LIT lig4r4 [
+            LIT (lig4r7 "John") [],
+            LIT lig4r1 [
+                LIT (lig4r8 "saw") [],
+                LIT (lig4r7 "Mary") []
+            ]
+        ]
+
+-- what John say who Mary know t saw t
+lig4t2 = LIT lig4r6 [
+            LIT (lig4r10 "what") [],
+            LIT lig4r4 [
+                LIT (lig4r7 "John") [],
+                LIT lig4r3 [
+                    LIT (lig4r9 "say") [],
+                    LIT lig4r6 [
+                        LIT (lig4r10 "who") [],
+                        LIT lig4r4 [
+                            LIT (lig4r7 "Mary") [],
+                            LIT lig4r3 [
+                                LIT (lig4r9 "know") [],
+                                LIT lig4r5 [
+                                    LIT lig4r11 [],
+                                    LIT lig4r2 [
+                                        LIT (lig4r8 "saw") [],
+                                        LIT lig4r11 []
                                     ]
                                 ]
                             ]
