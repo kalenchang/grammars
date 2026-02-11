@@ -2,6 +2,8 @@ module HG where
 
 import Prelude
 import Data.Tree
+import Data.List (foldl')
+import Control.Monad.State
 
 import Printing
 
@@ -18,7 +20,6 @@ instance (Texable nts, Texable ts) => Texable (HGRule nts ts) where
     texify (Concat a b c d) = texify a ++ " \\concar{" ++ show (length b + 1) ++ "} " ++ texifySpaces b ++ ' ':(texify c) ++ texifySpaces d
     texify (Wrap a b c) = texify a ++ " \\wrapar{} " ++ texify b ++ ' ':(texify c)
     texify (Leafh a b c) = texify a ++ " \\ra{} " ++ (stringSpaces (map texify b)) ++ "\\hgs{}" ++ (stringSpaces (map texify c))
-
 
 -- hg grammars
 newtype HG = HG ([VN], [VT], VN, [HGRule VN VT])
@@ -109,11 +110,11 @@ hgPresent (HGT r@(Wrap _ _ _) t) = Node (case categoryh (HGT r t) of {Just cat -
 -- hgtoRuleTree :: (Show nts, Show ts) => HGTree nts ts -> Tree String
 hgtoRuleTree (HGT r l) = Node (show r) (map hgtoRuleTree l)
 
--- hgtoAllTree :: (Show nts, Show ts, Eq nts) => HGTree nts ts -> Tree String
-hgtoAllTree t@(HGT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (combine2 $ yieldh t)) (map hgtoAllTree ts)
+-- hgtoThreeTree :: (Show nts, Show ts, Eq nts) => HGTree nts ts -> Tree String
+hgtoThreeTree t@(HGT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (combine2 $ yieldh t)) (map hgtoThreeTree ts)
         where cat = case categoryh t of {Just cat -> show cat; Nothing -> "n/a"}
 
-hgtoAllLatex t@(HGT r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (combine2tex $ yieldh t)) (map hgtoAllLatex ts)
+hgtoThreeLatex t@(HGT r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (combine2tex $ yieldh t)) (map hgtoThreeLatex ts)
         where cat = case categoryh t of {Just cat -> texify cat; Nothing -> "n/a"}
 
 
@@ -142,3 +143,74 @@ hg4t1 = HGT hg4r1 [
                 HGT hg4r8 []
             ]
         ]
+
+
+
+------------------------------
+------- extended HGs ---------
+------------------------------
+
+data HGXRule nts ts = HGXR nts (HGO nts ts) deriving Eq
+
+data HGO nts ts = LeafO [ts] [ts]
+        | NTO nts
+        | ConcatO [HGO nts ts] (HGO nts ts) [HGO nts ts]
+        | WrapO [HGO nts ts] deriving Eq
+
+instance (Show nts, Show ts) => Show (HGO nts ts) where
+    show (LeafO x y) = concat (map show x) ++ ";" ++ concat (map show y)
+    show (NTO x) = show x
+    show (ConcatO b c d) = "C" ++ show (length b + 1) ++ "(" ++ insertCommas (b ++ c:d) ++ ")"
+    show (WrapO xs) = "W(" ++ insertCommas xs ++ ")"
+
+instance (Show nts, Show ts) => Show (HGXRule nts ts) where
+    show (HGXR x op) = show x ++ " -> " ++ show op
+
+instance (Texable nts) => Texable (HGO nts String) where
+    texify (LeafO x y) = concat x ++ "\\hgs{}" ++ concat y
+    texify (NTO x) = texify x
+    texify (ConcatO b c d) = "\\fconc{" ++ show (length b + 1) ++ "}(" ++ texifyCommas (b ++ c:d) ++ ")"
+    texify (WrapO xs) = "\\func{W}(" ++ texifyCommas xs ++ ")"
+
+instance (Texable nts) => Texable (HGXRule nts String) where
+    texify (HGXR x op) = texify x ++ " \\ra{} " ++ texify op
+
+hgxr1 = HGXR S (ConcatO [] (WrapO [NTO B, NTO C, NTO T]) [LeafO ["a"] ["x"]])
+hgxr2 = HGXR S (ConcatO [] (WrapO [LeafO ["b"] ["d"], NTO S]) [NTO S])
+hgxr3 = HGXR S (LeafO [] [])
+
+data HGXTree nts ts = HGXT (HGXRule nts ts) [HGXTree nts ts] deriving (Show, Eq)
+
+hgxt1 = HGXT hgxr2 [HGXT hgxr3 [], HGXT hgxr2 [HGXT hgxr3 [], HGXT hgxr3 []]]
+hgxt2 = HGXT hgxr2 [hgxt1, hgxt1]
+
+-- yieldhx on trees
+yieldhx (HGXT (HGXR nts o) ds) = fst $ runState (yieldhx' o) (map (yieldhx) ds)
+-- yieldhx' on operations
+yieldhx' :: (HGO nts ts) -> State [([ts],[ts])] ([ts],[ts])
+yieldhx' (LeafO x y) = return (x,y)
+yieldhx' (NTO x) = state (\(y:ys) -> (y, ys))
+yieldhx' (ConcatO b c d) = state (\s -> let ((x1,y1),s1) = runState (foldl' (liftA2 conc2) (return ([],[])) (map yieldhx' b)) s in
+        let ((x2,y2),s2) = runState (yieldhx' c) s1 in
+            let ((x3,y3),s3) = runState (foldl' (liftA2 conc2) (return ([],[])) (map yieldhx' d)) s2 in
+                ((x1++y1++x2,y2++x3++y3), s3))
+    -- foldl' (liftA2 conc2) (return []) (map yieldhx' b) ++ fst c, snd c ++ foldl' (liftA2 conc2) (return []) (map yieldhx' d)
+yieldhx' (WrapO xs) = foldl' (liftA2 wrap2) (return ([],[])) (map yieldhx' xs) 
+
+
+conc2 = \(x1,x2) (y1,y2) -> (x1 ++ x2, y1 ++ y2)
+wrap2 = \(x1,x2) (y1,y2) -> (x1 ++ y1, y2 ++ x2)
+
+cathx (HGXT (HGXR nt o) ds) = if map Just (cathxnts o) == map cathx ds then Just nt else Nothing
+
+cathxnts (LeafO _ _) = []
+cathxnts (NTO x) = [x]
+cathxnts (ConcatO b c d) = concatMap cathxnts (b ++ c:d)
+cathxnts (WrapO xs) = concatMap cathxnts xs
+
+hgxtoThreeTree t@(HGXT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (combine2 $ yieldhx t)) (map hgxtoThreeTree ts)
+        where cat = case cathx t of {Just cat -> show cat; Nothing -> "n/a"}
+
+hgxtoThreeLatex t@(HGXT r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (combine2tex $ yieldhx t)) (map hgxtoThreeLatex ts)
+        where cat = case cathx t of {Just cat -> texify cat; Nothing -> "n/a"}
+
