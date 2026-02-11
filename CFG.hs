@@ -4,6 +4,7 @@ import Prelude hiding ((^))
 import Data.Tree
 import Data.List (foldl')
 import Control.Monad
+import Control.Monad.State
 
 import Printing
 import Lambdas
@@ -264,3 +265,73 @@ mucfg4' = makemulre [NP] mucfg4list
 
 -- > latexTree $ cfgtoAllLatex mucfg4 cfg4t1
 -- > 
+
+
+
+------ TESTING AREA
+
+data CXRule nts ts = CXR nts (CXO nts ts) deriving Eq
+
+data CXO nts ts = LfO ts
+        | NtO nts
+        | CcO [CXO nts ts] deriving Eq
+
+instance (Show nts) => Show (CXO nts String) where
+    show (LfO x) = x
+    show (NtO x) = show x
+    show (CcO ds) = "C(" ++ insertCommas ds ++ ")"
+
+instance (Show nts) => Show (CXRule nts String) where
+    show (CXR x op) = show x ++ " -> " ++ show op
+
+instance (Texable nts) => Texable (CXO nts String) where
+    texify (LfO x) = x
+    texify (NtO x) = texify x
+    texify (CcO ds) = "\\func{C}(" ++ texifyCommas ds ++ ")"
+
+instance (Texable nts) => Texable (CXRule nts String) where
+    texify (CXR x op) = texify x ++ " \\ra{} " ++ texify op
+
+cxr1 = CXR S (LfO "")
+cxr2 = CXR S (CcO [LfO "a", NtO S, LfO "b"])
+
+data CXTree nts ts = CXT (CXRule nts ts) [CXTree nts ts] deriving (Eq)
+
+cxt1 = CXT cxr2 [CXT cxr1 []]
+cxt2 = CXT cxr2 [cxt1]
+cxt3 = CXT cxr2 [cxt2]
+
+-- -- yieldcx on trees
+-- yieldcx (CXT (CXR nts o) ds) = concat . fst $ runState (yieldcx' o) (map (yieldcx) ds)
+
+-- -- yieldcx' on operations
+-- -- yield of each operation should be a function that takes in a (possibly empty) list of strings
+-- -- and returns a string + the remaining unused strings from the list
+-- yieldcx' :: (CXO nts ts) -> State [[ts]] [[ts]]
+-- yieldcx' (LfO x) = return [[x]]
+-- yieldcx' (NtO x) = state (\(y:ys) -> ([y], ys))
+-- yieldcx' (CcO ds) = foldl' (liftA2 (++)) (return []) (map yieldcx' ds)
+
+
+-- yieldcx on trees
+yieldcx (CXT (CXR _ o) ds) = fst $ runState (yieldcx' o) (map (yieldcx) ds)
+
+-- yieldcx' on operations
+-- yield of each operation should be a function that takes in a (possibly empty) list of strings
+-- and returns a string + the remaining unused strings from the list
+yieldcx' :: (CXO nts ts) -> State [[ts]] [ts]
+yieldcx' (LfO x) = return [x]
+yieldcx' (NtO x) = state (\(y:ys) -> (y, ys))
+yieldcx' (CcO ds) = foldl' (liftA2 (++)) (return []) (map yieldcx' ds)
+
+catcx (CXT (CXR nt o) ds) = if map Just (catcxnts o) == map catcx ds then Just nt else Nothing
+
+catcxnts (LfO _) = []
+catcxnts (NtO x) = [x]
+catcxnts (CcO ds) = concatMap catcxnts ds
+
+cfgxtoThree t@(CXT r ts) = Node ((show r) ++ '\n':catc ++ ": " ++ (concat (yieldcx t))) (map (cfgxtoThree) ts)
+        where catc = case catcx t of {Just cat -> show cat; Nothing -> "n/a"}
+
+cfgxtoThreeLatex t@(CXT r ts) = Node ((texify r) ++ "\\\\" ++ catc ++ ": " ++ (concat (yieldcx t))) (map (cfgxtoThreeLatex) ts)
+        where catc = case catcx t of {Just cat -> texify cat; Nothing -> "n/a"}
