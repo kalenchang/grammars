@@ -5,14 +5,32 @@ import Data.Tree
 
 -- rule showing functions
 insertSpaces :: Show a => [a] -> String
-insertSpaces [] = ""
-insertSpaces [x] = show x
-insertSpaces (x:xs) = show x ++ " " ++ insertSpaces xs
+-- insertSpaces [] = ""
+-- insertSpaces [x] = show x
+-- insertSpaces (x:xs) = show x ++ " " ++ insertSpaces xs
+insertSpaces = sfold show " "
+
+insertCommas :: Show a => [a] -> String
+-- insertCommas [] = ""
+-- insertCommas [x] = show x
+-- insertCommas (x:xs) = show x ++ "," ++ insertCommas xs
+insertCommas = sfold show ","
 
 texifySpaces :: Texable a => [a] -> String
-texifySpaces [] = ""
-texifySpaces [x] = texify x
-texifySpaces (x:xs) = texify x ++ " " ++ texifySpaces xs
+-- texifySpaces [] = ""
+-- texifySpaces [x] = texify x
+-- texifySpaces (x:xs) = texify x ++ " " ++ texifySpaces xs
+texifySpaces = sfold texify " "
+
+texifyCommas :: Texable a => [a] -> String
+-- texifyCommas [] = ""
+-- texifyCommas [x] = texify x
+-- texifyCommas (x:xs) = texify x ++ "," ++ texifyCommas xs
+texifyCommas = sfold texify ","
+
+sfold fn br [] = ""
+sfold fn br [x] = fn x
+sfold fn br (x:xs) = fn x ++ br ++ sfold fn br xs 
 
 stringSpaces :: [String] -> String
 stringSpaces [] = "\\ep"
@@ -23,7 +41,7 @@ stringSpaces (x:xs) = (x ++ ' ':stringSpaces xs)
 combine :: ([a], [a]) -> [a]
 combine (x,y) = x++y
 
-showstack :: (Show a) => [a] -> String
+-- showstack :: (Show a) => [a] -> String
 showstack s = "[" ++ insertSpaces s ++ "]"
 
 -- latex type
