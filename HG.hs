@@ -17,7 +17,7 @@ instance (Show nts, Show ts) => Show (HGRule nts ts) where
     show (Leafh a b c) = show a ++ " --> " ++ concat (map show b) ++ ";" ++ concat (map show c)
 
 instance (Texable nts, Texable ts) => Texable (HGRule nts ts) where
-    texify (Concat a b c d) = texify a ++ " \\concar{" ++ show (length b + 1) ++ "} " ++ texifySpaces b ++ ' ':(texify c) ++ texifySpaces d
+    texify (Concat a b c d) = texify a ++ " \\concar{" ++ show (length b + 1) ++ "} " ++ texifySpaces b ++ ' ':(texify c) ++ ' ':texifySpaces d
     texify (Wrap a b c) = texify a ++ " \\wrapar{} " ++ texify b ++ ' ':(texify c)
     texify (Leafh a b c) = texify a ++ " \\ra{} " ++ (stringSpaces (map texify b)) ++ "\\hgs{}" ++ (stringSpaces (map texify c))
 
@@ -179,13 +179,13 @@ hgxr1 = HGXR S (ConcatO [] (WrapO [NTO B, NTO C, NTO T]) [LeafO ["a"] ["x"]])
 hgxr2 = HGXR S (ConcatO [] (WrapO [LeafO ["b"] ["d"], NTO S]) [NTO S])
 hgxr3 = HGXR S (LeafO [] [])
 
-data HGXTree nts ts = HGXT (HGXRule nts ts) [HGXTree nts ts] deriving (Show, Eq)
+-- data HGXTree nts ts = HGXT (HGXRule nts ts) [HGXTree nts ts] deriving (Show, Eq)
 
-hgxt1 = HGXT hgxr2 [HGXT hgxr3 [], HGXT hgxr2 [HGXT hgxr3 [], HGXT hgxr3 []]]
-hgxt2 = HGXT hgxr2 [hgxt1, hgxt1]
+hgxt1 = Node hgxr2 [Node hgxr3 [], Node hgxr2 [Node hgxr3 [], Node hgxr3 []]]
+hgxt2 = Node hgxr2 [hgxt1, hgxt1]
 
 -- yieldhx on trees
-yieldhx (HGXT (HGXR nts o) ds) = fst $ runState (yieldhx' o) (map (yieldhx) ds)
+yieldhx (Node (HGXR nts o) ds) = fst $ runState (yieldhx' o) (map (yieldhx) ds)
 -- yieldhx' on operations
 yieldhx' :: (HGO nts ts) -> State [([ts],[ts])] ([ts],[ts])
 yieldhx' (LeafO x y) = return (x,y)
@@ -201,16 +201,16 @@ yieldhx' (WrapO xs) = foldl' (liftA2 wrap2) (return ([],[])) (map yieldhx' xs)
 conc2 = \(x1,x2) (y1,y2) -> (x1 ++ x2, y1 ++ y2)
 wrap2 = \(x1,x2) (y1,y2) -> (x1 ++ y1, y2 ++ x2)
 
-cathx (HGXT (HGXR nt o) ds) = if map Just (cathxnts o) == map cathx ds then Just nt else Nothing
+cathx (Node (HGXR nt o) ds) = if map Just (cathxnts o) == map cathx ds then Just nt else Nothing
 
 cathxnts (LeafO _ _) = []
 cathxnts (NTO x) = [x]
 cathxnts (ConcatO b c d) = concatMap cathxnts (b ++ c:d)
 cathxnts (WrapO xs) = concatMap cathxnts xs
 
-hgxtoThreeTree t@(HGXT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (combine2 $ yieldhx t)) (map hgxtoThreeTree ts)
+hgxtoThreeTree t@(Node r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (combine2 $ yieldhx t)) (map hgxtoThreeTree ts)
         where cat = case cathx t of {Just cat -> show cat; Nothing -> "n/a"}
 
-hgxtoThreeLatex t@(HGXT r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (combine2tex $ yieldhx t)) (map hgxtoThreeLatex ts)
+hgxtoThreeLatex t@(Node r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (combine2tex $ yieldhx t)) (map hgxtoThreeLatex ts)
         where cat = case cathx t of {Just cat -> texify cat; Nothing -> "n/a"}
 
