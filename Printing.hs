@@ -22,11 +22,17 @@ texifySpaces :: Texable a => [a] -> String
 -- texifySpaces (x:xs) = texify x ++ " " ++ texifySpaces xs
 texifySpaces = sfold texify " "
 
+texifyStack l = "[" ++ texifySpaces l ++ "]"
+
 texifyCommas :: Texable a => [a] -> String
 -- texifyCommas [] = ""
 -- texifyCommas [x] = texify x
 -- texifyCommas (x:xs) = texify x ++ "," ++ texifyCommas xs
 texifyCommas = sfold texify ","
+
+addSpaces = sfold id " "
+showTogether :: (Show t) => [t] -> String
+showTogether = sfold show ""
 
 sfold fn br [] = ""
 sfold fn br [x] = fn x
@@ -55,15 +61,18 @@ instance Texable String where
     -- texify "trace" = "\\ml{t}"
     texify x = x
 
+instance Texable () where
+    texify () = "\\ap"
+
 instance Texable VN where
     texify VE = "V\\tul{E}"
     texify VI = "V\\tul{I}"
     texify VT = "V\\tul{T}"
     texify WH = "\\ml{wh}P"
     -- texify TR = "\\ml{t}"
-    texify DPT = "DP\\tul{\\ml{t}}"
-    texify WHH = "\\ml{wh}P\\tul{hum}"
-    texify WHN = "\\ml{wh}P\\tul{non}"
+    texify DPT = "\\ml{t}P"
+    texify WHN = "\\ml{wh}P\\tul{nom}"
+    texify WHA = "\\ml{wh}P\\tul{acc}"
     texify x = show x
 
 instance Texable VII where
@@ -76,6 +85,9 @@ instance Texable VII where
 
 instance Texable [VII] where
     texify x = "[" ++ texifySpaces x ++ "]"
+
+instance Texable Integer where
+    texify x = show x
 
 -- instance Texable [VN] where
 --     texify x = texifySpaces x
@@ -128,7 +140,7 @@ drawLatex (Node x ts0) = lines ("[{"++(x)++"}") ++ drawSubTrees ts0 ++ ["]"]
 -------- basic categories ---------
 -- nonterminals
 data VN = S | T | U | R 
-            | A | B | C | D 
+            | A | B | C | D | AP
             | CP | DP | DPT 
             | NP | N | Pos | Name 
             | VP | VE | VI | V | VT 
