@@ -18,8 +18,8 @@ data PDATrans st sy ind = PDAT {fromState :: st, symb :: sy, popInd :: [ind], to
 instance (Show st, Show sy, Show ind) => Show (PDATrans st sy ind) where
     show (PDAT a b c d e) = '(':show a ++ ',':show b ++ ',':show c ++ ") -> (" ++ show d ++ ',': show e ++")"
 
-instance (Show st, Show ind) => Texable (PDATrans st String ind) where
-    texify (PDAT a b c d e) = showstate a ++ showstack c ++ " \\xra{" ++ b ++ "} " ++ showstate d ++ showstack e
+instance (Texable st, Texable ind) => Texable (PDATrans st String ind) where
+    texify (PDAT a b c d e) = texify a ++ texifyStack c ++ " \\xrat{" ++ b ++ "} " ++ texify d ++ texifyStack e
 
 showstate :: (Show a) => a -> String
 showstate = \x -> let out = show x in if out == "()" then "\\ap" else out
@@ -157,8 +157,8 @@ pdallog (q, stack) taken (t:ts) = let updated = taken ++ [t] in
 pdarshow (l, q, st) = pdallog (q, [st]) [] l
 
 pdartoTex run@(l, q, st) = let log = pdarshow run in
-    let texit = \(t, cat, yd) -> "\\\\\n" ++ texify t ++ "  &  " ++ (case cat of {Just (q, st) -> showstate q ++ showstack st; Nothing -> "n/a"}) ++ "  &  " ++ concat yd in
-        putStrLn ("\n\\begin{tabular}{lll}\n Start   &  " ++ showstate q ++ showstack [st] ++ "  &  " ++ concatMap texit log ++ "\n\\end{tabular}\n")
+    let texit = \(t, cat, yd) -> "\\\\\n" ++ texify t ++ "  &  " ++ (case cat of {Just (qi, si) -> texify qi ++ texifyStack si; Nothing -> "n/a"}) ++ "  &  " ++ concat yd in
+        putStrLn ("\n\\begin{tabular}{lll}\n Start   &  " ++ texify q ++ texifyStack [st] ++ "  &  " ++ concatMap texit log ++ "\n\\end{tabular}\n")
 
 pdallogden mu iota (q, stack) _ [] = []
 pdallogden mu iota (q, stack) taken (t:ts) = let updated = taken ++ [t] in 
@@ -172,3 +172,47 @@ pdallogdentex run@(l, q, i) mu iota = let log = pdallogden mu iota (q, [i]) [] l
 pdatoTex (PDA q sigma gamma delta q0 z0) = putStrLn $ "\n$(" ++ concatMap bracketize [show q, show sigma, show gamma] ++ "\\delta, " 
                                                 ++ show q0 ++ ", " ++ show z0 ++ ")$, where $\\delta = \\{" ++ concatMap (\x -> "\\hlm{" ++ texify x ++ "},") delta ++ "\\}$\n"
 bracketize s = "\\{" ++ s ++ "\\}, "
+
+
+
+----------------------
+-- PDA translations --
+--       ppt        --
+----------------------
+
+data PDAtransNT st sy ind = PCStart | Sngp sy | Dblp st st Bool | Trpp st ind st Bool deriving Eq
+
+instance (Show st, Show sy, Show ind) => Show (PDAtransNT st sy ind) where
+    show (Trpp a b c d) = '[':show a ++ show b ++ show c ++ "]"
+    show (Dblp a c d) = '[':show a ++ "-" ++ show c ++ (if d then "." else "") ++ "]"
+    show (Sngp a) = '[':show a ++ "]"
+    show PCStart = "S"
+
+instance (Show st, Show ind) => Texable (PDAtransNT st String ind) where
+    texify (Trpp a b c d) = "\\tropcat{" ++ show a ++ "}{" ++ (if d then \x -> "\\xbar{" ++ x ++ "}" else id) (show c) ++ "}{" ++ show b ++ "}"
+    texify (Dblp a c d) = "\\tropcat{" ++ show a ++ "}{" ++ (if d then \x -> "\\xbar{" ++ x ++ "}" else id) (show c) ++ "}{}"
+    texify (Sngp a) = if a == "" then "" else "\\inbar{" ++ texify a ++ "}"
+    texify PCStart = "S"
+
+
+
+-- in theory sts and e are the same length
+makeNTtrans (PDAT q u [i] q' js) sts = PDAT () u [Trpp q i (last (q':sts)) False] () ((zipWith3 (\x y z -> Trpp x y z False) (q':sts) js sts ))
+-- rewrite Sngp nonterminals as terminals
+-- makeTtrans s = Leafing (Sngp s) [s]
+-- if stack is empty, can rewrite NT as T
+-- makeNTTtrans (PDAT q u [i] q' []) = Leafing (Trpp q i q' False) [u]
+
+-- ppt :: (Monoid sy, Eq st, Eq ind) => (PDARun st sy ind) -> (PDARun () sy (PDAtransNT st sy ind))
+ppt (p, state, index) = ( (PDAT () mempty [PCStart] () [Trpp state index x False]) : (head $ ppt' p), (), PCStart)
+    where Just (x, []) = pdarcat (p, state, index)
+
+ppt' :: [PDATrans st sy ind] -> [[PDATrans () sy (PDAtransNT st sy ind)]]
+ppt' [] = []
+-- ppt' (tr@(PDAT q u [i] q' []):ts) = (CFT (makeNTTrule tr) []):(ppt' ts)
+ppt' (tr@(PDAT q u [i] q' js):ts) = let (pathlist, rank) = (ppt' ts, length js) in
+    let (lf, lb) = (take rank pathlist, drop rank pathlist) in
+    ((makeNTtrans tr (map rtdnp lf)):(concat lf)):lb
+
+-- root denominator
+rtdnp ((PDAT () _ [Trpp _ _ x _] _ _): _) = x
