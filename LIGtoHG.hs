@@ -107,7 +107,7 @@ rosify (PT b (TC m l d r)) = RT m (map rosify l) (rosify (PT b d)) (map rosify r
 -- contexthg (TC m l d r) = HGT (L m) ((map hgify l) ++ (contexthg d):(map hgify r))
 
 -- Bool indicates whether the NT before it is a barred symbol or not
-data HGTransNT nts ind = Sng nts Bool | Trp nts nts Bool (Maybe ind) deriving Eq
+data HGTransNT nts ind = Sng nts Bool | Sngi nts Bool ind | Trp nts nts Bool | Trpi nts nts Bool ind deriving Eq
 
 -- regular show instance for triple categories
 -- instance (Show nts, Show ind) => Show (HGTransNT nts ind) where
@@ -117,26 +117,36 @@ data HGTransNT nts ind = Sng nts Bool | Trp nts nts Bool (Maybe ind) deriving Eq
 -- show instance for triple categories for latex
 instance (Show nts, Show ind) => Show (HGTransNT nts ind) where
     show (Sng a bar) = show a
-    show (Trp a b bar e) = "~{" ++ (show a) ++ "}{" ++ (show b) ++ "}{" ++ (case e of {Just i -> show i; Nothing -> ""}) ++ "}"
+    show (Sngi a bar c) = show a ++ show c
+    show (Trp a b bar) = "" ++ (show a) ++ "/" ++ (show b) ++ ""
+    show (Trpi a b bar e) = "" ++ (show a) ++ "/" ++ (show b) ++ "/" ++ show e ++ ""
+
+instance (Texable nts, Texable ind) => Texable (HGTransNT nts ind) where
+    texify (Sng a bar) = texify a
+    texify (Sngi a bar c) = texify a ++ "\\rais{" ++ texify c ++ "}"
+    texify (Trp a b bar) = "\\tripcat{" ++ (texify a) ++ "}{" ++ (\x -> if bar then "\\xbar{" ++ x ++ "}" else x) (texify b) ++ "}{}"
+    texify (Trpi a b bar e) = "\\tripcat{" ++ (texify a) ++ "}{" ++ (\x -> if bar then "\\xbar{" ++ x ++ "}" else x) (texify b) ++ "}{" ++ texify e ++ "}"
 
 -- data HGRule nts ts = W1 nts nts nts VI | W2 nts nts | E nts | L (LIGRule nts ts) nts | Lx (LIGRule nts ts) deriving Eq
 
 -- constructors for HGRules that come from an LIG
 makeW1rule :: nts -> nts -> nts -> ind -> HGRule (HGTransNT nts ind) ts
-makeW1rule a d b e = Wrap (Trp a d False (Just e)) (Trp a b True Nothing) (Trp b d True (Just e))
+makeW1rule a d b e = Wrap (Trpi a d False e) (Trp a b True) (Trpi b d True e)
 
 makeW2rule :: nts -> nts -> HGRule (HGTransNT nts ind) ts
-makeW2rule a b = Wrap (Sng a False) (Trp a b True Nothing) (Sng b True)
+makeW2rule a b = Wrap (Sng a False) (Trp a b True) (Sng b True)
 
 makeErule :: nts -> HGRule (HGTransNT nts ind) ts
-makeErule a = Leafh (Trp a a False Nothing) [] []
+makeErule a = Leafh (Trp a a False) [] []
 
 makeLrule :: (LIGRule nts ts ind) -> nts -> Bool -> HGRule (HGTransNT nts ind) ts
-makeLrule (Branch a b c d e) g bar = let (k, l) = case e of {NoChange -> (Nothing, Nothing); 
-                                                            Push i -> (Nothing, Just i);
-                                                            Pop i -> (Just i, Nothing)} in
-                Concat (Trp a g bar k) (map (\x -> Sng x False) b) (Trp c g False l) (map (\x -> Sng x False) d)
-
+-- makeLrule (Branch a b c d e) g bar = let (k, l) = case e of {NoChange -> (Nothing, Nothing); 
+--                                                             Push i -> (Nothing, Just i);
+--                                                             Pop i -> (Just i, Nothing)} in
+--                 Concat (Trp a g bar k) (map (\x -> Sng x False) b) (Trp c g False l) (map (\x -> Sng x False) d)
+makeLrule (Branch a b c d NoChange) g bar = Concat (Trp a g bar) (map (\x -> Sng x False) b) (Trp c g False) (map (\x -> Sng x False) d)
+makeLrule (Branch a b c d (Push i)) g bar = Concat (Trp a g bar) (map (\x -> Sng x False) b) (Trpi c g False i) (map (\x -> Sng x False) d)
+makeLrule (Branch a b c d (Pop i)) g bar = Concat (Trpi a g bar i) (map (\x -> Sng x False) b) (Trp c g False) (map (\x -> Sng x False) d)
 makeLxrule :: (LIGRule nts ts ind) -> Bool -> HGRule (HGTransNT nts ind) ts
 makeLxrule (Leaf a b) bar = Leafh (Sng a bar) [] b
 
@@ -244,6 +254,9 @@ countnodes (LIT m d) = 1 + sum (map countnodes d)
 
 measureHG :: LITree nts ts ind -> (LITree nts ts ind -> a) -> a
 measureHG = undefined
+
+
+
 
 
 -------------------------------
@@ -472,3 +485,54 @@ g4t1 = LIT g4r1 [
                 ]
             ]
         ]
+
+
+---------------------------------------
+-- NEW translation: LHT (top down!!) --
+---------------------------------------
+
+hgsided (cat,[]) = NTO (Sng cat False)
+hgsided (cat,[index]) = NTO (Sngi cat False index)
+
+makeBranchhx (Branchx a i b (c,ci) d) sts = HGXR (Trpi a (last (c:sts)) False i) (ConcatO (map hgsided b) (WrapO $ zipWith3 (\x y z -> NTO (Trpi x y False z)) (c:sts) sts ci) (map hgsided d))       
+makeNopophx (Branchx a i b (c,[]) d) = HGXR (Trpi a c False i) (ConcatO (map hgsided b) (NTO $ Trp c c False) (map hgsided d))
+makeLeafhx (Leafx a b) = HGXR (Sng a False) (LeafO [] b)
+makeFillhx a b i = HGXR (Sngi a False i) (WrapO [NTO (Trpi a b False i), NTO (Sng b False)])
+makeEmptyhx a = HGXR (Trp a a False) (LeafO [] [])
+
+parseRosex (Node r@(Leafx _ _) []) = Bud r
+parseRosex (Node r@(Branchx _ _ b c d) ts) = let (ls, cd:rs) = splitAt (length b) ts in RT r (map parseRosex ls) (parseRosex cd) (map parseRosex rs)
+
+data PTreeX a = PTX a (TContextX a) deriving (Show, Eq)
+data TContextX a = EmptyX | TCX a [Tree a] (TContextX a) [Tree a] deriving (Show, Eq)
+
+-- petrifyx :: RoseTree a -> PTreeX a
+-- petrifyx (Bud b) = PTX b EmptyX
+-- petrifyx (RT m l d r) = let PTX b c = petrifyx d in PTX b (TCX m l c r)
+
+petrose (Node r@(Leafx _ _) []) = PTX r EmptyX
+petrose (Node r@(Passx _ b _ _) ts) = let (ls, cd:rs) = splitAt (length b) ts in
+                let PTX bud cont = petrose cd in
+                    PTX bud (TCX r ls cont rs)
+petrose (Node r@(Branchx _ _ b c d) ts) = let (ls, cd:rs) = splitAt (length b) ts in
+                let PTX bud cont = petrose cd in
+                    PTX bud (TCX r ls cont rs)
+
+-- lht :: (Eq nts, Eq ind) => (Tree (LIGXRule nts ts ind)) -> Tree (HGXRule (HGTransNT nts ind) ts)
+lht (Node r@(Leafx a b) []) = Node (makeLeafhx r) []
+lht t@(Node r@(Branchx a i _ _ _) _) = let (PTX lx@(Leafx x _) cont) = petrose t in
+                    let [headt] = (lht' cont x) in
+                        Node (makeFillhx a x i) [headt, Node (makeLeafhx lx) []]
+
+-- lht' :: (Eq nts, Eq ind) => (Tree (LIGXRule nts ts ind)) -> [Tree (HGXRule (HGTransNT nts ind) ts)]
+lht' EmptyX x = []
+lht' (TCX m@(Branchx a i b (c,[]) d) l dc r) x = (Node (makeNopophx m) (map lht l ++ [Node (makeEmptyhx c) []] ++ map lht r)):(lht' dc x)
+lht' (TCX m@(Branchx a i b (c,ci) d) l dc r) x = let (treelist, rank) = (lht' dc x, length ci) in
+    let (lf, lb) = (take rank treelist, drop rank treelist) in 
+    (Node (makeBranchhx m (map rtdn lf)) (map lht l ++ lf ++ map lht r)):lb
+        where rtdn (Node (HGXR (Trpi _ denom _ _) _) _) = denom
+
+
+-- > latexTree $ threeLatex gx1t1
+-- > latexTree $ hgxtoThreeLatex $ lht gx1t1
+
