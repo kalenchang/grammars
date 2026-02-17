@@ -8,20 +8,7 @@ import Lambdas
 import PDA
 import CFG
 
--- still need to add bar symbols...
-data PDAtransNT st sy ind = PCStart | Sngp sy | Dblp st st Bool | Trpp st ind st Bool deriving Eq
 
-instance (Show st, Show sy, Show ind) => Show (PDAtransNT st sy ind) where
-    show (Trpp a b c d) = '[':show a ++ show b ++ show c ++ "]"
-    show (Dblp a c d) = '[':show a ++ "-" ++ show c ++ (if d then "." else "") ++ "]"
-    show (Sngp a) = '[':show a ++ "]"
-    show PCStart = "S"
-
-instance (Show st, Show ind) => Texable (PDAtransNT st String ind) where
-    texify (Trpp a b c d) = "\\tripcat{" ++ show a ++ "}{" ++ (if d then \x -> "\\xbar{" ++ x ++ "}" else id) (show c) ++ "}{" ++ show b ++ "}"
-    texify (Dblp a c d) = "\\tripcat{" ++ show a ++ "}{" ++ (if d then \x -> "\\xbar{" ++ x ++ "}" else id) (show c) ++ "}{}"
-    texify (Sngp a) = if a == "" then "" else "\\inbar{" ++ texify a ++ "}"
-    texify PCStart = "S"
 
 -- PCT section
 
@@ -29,12 +16,12 @@ instance (Show st, Show ind) => Texable (PDAtransNT st String ind) where
 -- push/pop transitions -> becomes NT rule in CFG
 -- need a list of intermediate states (sts) that will be used to pop the stack symbols added from this transition (e)
 -- in theory sts and e are the same length
-makeNTrule (PDAT q u [i] q' js) sts = Branching (Trpp q i (last (q':sts)) False) ((Sngp u):(zipWith3 (\x -> \y -> \z -> Trpp x y z False) (q':sts) js sts ))
+makeNTrule (PDAT q u [i] q' js) sts = Branching (Trpp q i (last (q':sts)) False) ((Sngp u):(zipWith3 (\x y z -> Trpp x y z False) (q':sts) js sts ))
 -- rewrite Sngp nonterminals as terminals
 makeTrule s = Leafing (Sngp s) [s]
 -- if stack is empty, can rewrite NT as T
 makeNTTrule (PDAT q u [i] q' []) = Leafing (Trpp q i q' False) [u]
-
+        -- should u here be Sngp u?
 
 -- -- write an extractor function to get the denominator of the root node of a cfg tree
 -- makecfg' pdar start = let ((x:[]),_,_) = makecfglist [start] pdar in x
