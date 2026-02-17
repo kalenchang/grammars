@@ -20,6 +20,7 @@ data SC ind = NoChange | Push ind | Pop ind deriving (Show, Eq)
 data LIGRule nts ts ind = Branch {mother :: nts, lefts :: [nts], daughter :: nts, rights :: [nts], change :: SC ind} 
         | Leaf {mother :: nts, terms :: [ts]} deriving Eq
 
+
 -- i'm starting to feel like branch rules and leaf rules should be their own kinds of rules... but idk
 -- data LIGRule = Branch LIGBranchRule | Leaf LIGLeafRule deriving (Show, Eq)
 
@@ -87,7 +88,9 @@ changeStack (Pop i) (Just (x:s)) = if x == i then Just s else Nothing
 -- stackUp :: Eq ind => SC ind -> Maybe [ind] -> Maybe [ind]
 stackUp _ Nothing = Nothing
 stackUp NoChange s = s
-stackUp (Pop i) (Just s) = Just (i:s)
+stackUp (Pop i) s = do  
+                        s' <- s
+                        return (i:s')
 stackUp (Push i) (Just []) = Nothing
 stackUp (Push i) (Just (x:s)) = if x == i then Just s else Nothing
 
@@ -119,15 +122,16 @@ extract i (x:xs) = removeIndex i (x,xs)
 -- another alternative to produces: category :: LITree -> Maybe (VN, [VI])
 -- category of a tree is either a NT + stack, or it's nothing if the tree is invalid
 -- category :: (Eq nts, Eq ind) => (LITree nts ts ind) -> Maybe (nts, [ind])
-category (LIT (Leaf a _) daughters) = if null daughters then Just (a, []) else Nothing
-category (LIT (Branch a b c d e) daughters) = if correctDaughters && isJust newStack then Just (a, fromJust newStack) else Nothing
+categoryl (LIT (Leaf a _) daughters) = if null daughters then Just (a, []) else Nothing
+categoryl (LIT (Branch a b c d e) daughters) = if correctDaughters && isJust newStack then Just (a, fromJust newStack) else Nothing
     where
         (desig,rest) = extract (length b) daughters
+        desigct =  categoryl desig
         correctDaughters = and (zipWith checksides rest (b ++ d)) && checkmiddle 
+        checksides = \dt -> \n -> case categoryl dt of {Just (x1, x2) -> x1 == n && x2 == []; Nothing -> False}
+        checkmiddle = case desigct of {Just (x1, x2) -> x1 == c; Nothing -> False}
+        newStack = case desigct of {Just (x1, x2) -> stackUp e (Just x2); Nothing -> Nothing}
         -- dt = daughter, n = nonterminal, s = stack
-        checksides = \dt -> \n -> case category dt of {Just (x1, x2) -> x1 == n && x2 == []; Nothing -> False}
-        checkmiddle = case category desig of {Just (x1, x2) -> x1 == c; Nothing -> False}
-        newStack = case category desig of {Just (x1, x2) -> stackUp e (Just x2); Nothing -> Nothing}
 
 -- mytree1 :: LITree
 -- mytree1 = Bin ligr4 (Lef ligr7) (Bin ligr1 (Lef ligr8) (Lef ligr7))
@@ -193,9 +197,9 @@ tree4 = LIT ligr2 [
 -- isSentence :: LITree VN VT VI -> Bool
 isSentence tree = produces tree S []
 
--- yield :: Show ts => LITree nts ts ind -> [ts]
-yield (LIT (Leaf a b) d) = b
-yield (LIT (Branch a b c d e) daughters) = concat (map yield daughters)
+-- yieldl :: Show ts => LITree nts ts ind -> [ts]
+yieldl (LIT (Leaf a b) d) = b
+yieldl (LIT (Branch a b c d e) daughters) = concat (map yieldl daughters)
 
 -- show an LIG tree using only its rule label
 -- ligtoLabelTree :: LITree nts ts ind -> Tree String
@@ -217,28 +221,28 @@ ligtoLeftsTree (LIT r t) = Node (show $ mother r) (map ligtoLeftsTree t)
 
 -- shows tree in a presentation friendly way: category+stack and terminals only (assumes b :: list of strings)
 ligPresent (LIT (Leaf a b) t) = Node (show a ++ "[]\n" ++ (concat b)) []
-ligPresent (LIT r t) = Node (case category (LIT r t) of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}) (map ligPresent t)
+ligPresent (LIT r t) = Node (case categoryl (LIT r t) of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}) (map ligPresent t)
 
 -- shows the category of the subtree as indicated by the `category' function
 -- ought to implement some kind of memoization so it does not need to calculate the subtree's categories multiple times
 -- ligtoCatTree :: (Show nts, Eq nts, Show ind, Eq ind) => LITree nts ts ind -> Tree String
-ligtoCatTree (LIT r t) = Node (case category (LIT r t) of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}) (map ligtoCatTree t)
+ligtoCatTree (LIT r t) = Node (case categoryl (LIT r t) of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}) (map ligtoCatTree t)
 
 -- shows the yield so far at each node
 -- ligtoYieldTree :: Show ts => LITree nts ts ind -> Tree String
-ligtoYieldTree t@(LIT r ts) = Node (concat (map show (yield t))) (map ligtoYieldTree ts)
+ligtoYieldTree t@(LIT r ts) = Node (concat (map show (yieldl t))) (map ligtoYieldTree ts)
 
 -- shows the rule on one line, second line is cat: yield
 -- ligtoAllTree :: (Show nts, Show ts, Eq nts, Show ind, Eq ind) => LITree nts ts ind -> Tree String
-ligtoAllTree t@(LIT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (concat (map show (yield t)))) (map ligtoAllTree ts)
-        where cat = case category t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
+ligtoThreeTree t@(LIT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (concat (map show (yieldl t)))) (map ligtoThreeTree ts)
+        where cat = case categoryl t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
 
 -- ligtoAllLatex :: (Texable nts, Texable ts, Eq nts, Texable ind, Eq ind) => LITree nts ts ind -> Tree String
-ligtoAllLatex t@(LIT r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (texifySpaces (yield t))) (map ligtoAllLatex ts)
-        where cat = case category t of {Just (cat,stack) -> texify cat ++ texify stack; Nothing -> "n/a"}
+ligtoThreeLatex t@(LIT r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (texifySpaces (yieldl t))) (map ligtoThreeLatex ts)
+        where cat = case categoryl t of {Just (cat,stack) -> texify cat ++ texify stack; Nothing -> "n/a"}
 
 ligtoTwoTree t@(LIT r ts) = Node ((show r) ++ '\n':cat ) (map ligtoTwoTree ts)
-        where cat = case category t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
+        where cat = case categoryl t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
 
 
 lig2r1 = Branch S [A] S [] (Push 1)
@@ -331,25 +335,25 @@ lig3t2 = LIT lig3r1 [
 -- lig4: multiple wh-movement
 
 lig4r1 = Branch VP [] VT [DP] (NoChange)
-lig4r2 = Branch VP [] VT [DPT] (Pop I)
-lig4r2H = Branch VP [] VT [DPT] (Pop Hum)
-lig4r2N = Branch VP [] VT [DPT] (Pop Non)
+-- lig4r2 = Branch VP [] VT [DPT] (Pop I)
+-- lig4r2N = Branch VP [] VT [DPT] (Pop Nom)
+lig4r2 = Branch VP [] VT [DPT] (Pop Acc)
 lig4r3 = Branch VP [VE] CP [] (NoChange)
 lig4r4 = Branch CP [DP] VP [] (NoChange)
-lig4r5 = Branch CP [DPT] VP [] (Pop I)
-lig4r5H = Branch CP [DPT] VP [] (Pop Hum)
-lig4r5N = Branch CP [DPT] VP [] (Pop Non)
-lig4r6 = Branch CP [WH] CP [] (Push I)
-lig4r6H = Branch CP [WHH] CP [] (Push Hum)
-lig4r6N = Branch CP [WHN] CP [] (Push Non)
+lig4r5 = Branch CP [DPT] VP [] (Pop Nom)
+-- lig4r5H = Branch CP [DPT] VP [] (Pop Nom)
+-- lig4r5N = Branch CP [DPT] VP [] (Pop Non)
+-- lig4r6 = Branch CP [WH] CP [] (Push I)
+lig4r6N = Branch CP [WHN] CP [] (Push Nom)
+lig4r6A = Branch CP [WHA] CP [] (Push Acc)
 
 lig4r7 x = Leaf DP [x]
 lig4r8 x = Leaf VT [x]
 lig4r9 x = Leaf VE [x]
 lig4r10 x = Leaf WH [x]
 -- lig4r10 = Leaf WH ["who"]
-lig4r10H = Leaf WHH ["who"]
-lig4r10N = Leaf WHN ["what"]
+lig4r10N = Leaf WHN ["who"]
+lig4r10A = Leaf WHA ["whom"]
 lig4r11 = Leaf DPT ["\\ml{t}"]
 
 lig4r7j = Leaf DP ["John"]
@@ -369,15 +373,15 @@ lig4t1 = LIT lig4r4 [
             ]
         ]
 
--- what John say who Mary know t saw t
-lig4t2 = LIT lig4r6 [
-            LIT (lig4r10 "what") [],
+-- whom John say who Mary know t saw t
+lig4t2 = LIT lig4r6A [
+            LIT (lig4r10A) [],
             LIT lig4r4 [
                 LIT (lig4r7 "John") [],
                 LIT lig4r3 [
                     LIT (lig4r9 "say") [],
-                    LIT lig4r6 [
-                        LIT (lig4r10 "who") [],
+                    LIT lig4r6N [
+                        LIT (lig4r10N) [],
                         LIT lig4r4 [
                             LIT (lig4r7 "Mary") [],
                             LIT lig4r3 [
@@ -395,3 +399,98 @@ lig4t2 = LIT lig4r6 [
                 ]
             ]
         ]
+
+-- > latexTree $ ligtoThreeLatex lig4t2
+
+
+---------------------------------
+-- new rule type: LIG expanded --
+---------------------------------
+
+-- key: mother cat + ind popped, left ds, center d, right ds where d includes cat + inds pushed
+data LIGXRule nts ts ind = Branchx nts ind [(nts,[ind])] (nts,[ind]) [(nts,[ind])] 
+                | Passx nts [nts] nts [nts]
+                | Leafx nts [ts] deriving Eq
+
+instance (Show nts, Show ts, Show ind) => Show (LIGXRule nts ts ind) where
+    show (Branchx a i b c d) = show a ++ injbrackdot [i] ++ " -> " ++ addSpaces (map format b) ++ ' ':(formatd c) ++ " " ++ addSpaces (map format d)
+        where       
+            format = \(x,y) -> (show x) ++ injbrack y
+            formatd = \(x,y) -> (show x) ++ injbrackdot y
+    show (Passx a b c d) = (show a) ++ "[] -> " ++ (insertSpaces b) ++ ' ':(show c) ++ "[] " ++ (insertSpaces d)
+    show (Leafx a b) = (show a) ++ "[] -> " ++ concat (map show b)
+
+instance (Texable nts, Texable ind) => Texable (LIGXRule nts String ind) where
+    texify (Branchx a i b c d) = texify a ++ injbrackdot [i] ++ " \\ra{} " ++ addSpaces (map format b) ++ ' ':(formatd c) ++ " " ++ addSpaces (map format d)
+        where       
+            format = \(x,y) -> (texify x) ++ injbrack y
+            formatd = \(x,y) -> (texify x) ++ injbrackdot y
+    texify (Passx a b c d) = (texify a) ++ "[] \\ra{} " ++ (texifySpaces b) ++ ' ':(texify c) ++ "[] " ++ (texifySpaces d)
+    texify (Leafx a b) = (texify a) ++ "[] \\ra{} " ++ concat (map texify b)
+
+injbrack x = "[" ++ showTogether x ++ "]"
+injbrackdot x = "[" ++ showTogether x ++ "..]"
+
+-- type LIXT nts ts ind = Tree (LIGXRule nts ts ind) deriving (Eq, Show)
+
+yieldlx (Node (Leafx _ b) _) = b
+yieldlx (Node (Passx _ _ _ _) ds) = concat (map yieldlx ds)
+yieldlx (Node (Branchx _ _ _ _ _) ds) = concat (map yieldlx ds)
+
+categorylx (Node (Leafx a _) []) = Just (a,[])
+categorylx (Node (Passx a b c d) ds) = if dscorrect && isJust newstack then Just (a, fromJust newstack) else Nothing
+    where
+        (desig,drest) = extract (length b) ds
+        desigcat = categorylx desig
+        dscorrect = and (zipWith checksides drest (b ++ d)) && checkmiddle
+        checksides dt n = case categorylx dt of {Just (x1, x2) -> x1 == n && x2 == []; Nothing -> False}
+        (checkmiddle, newstack) = case desigcat of {Just (x1, x2) -> (x1 == c, Just x2); Nothing -> (False, Nothing)}
+categorylx (Node (Branchx a i b (c,ci) d) ds) = if dscorrect && isJust newstack then Just (a, fromJust newstack) else Nothing
+    where
+        (desig,drest) = extract (length b) ds
+        desigcat = categorylx desig
+        dscorrect = and (zipWith checksides drest (b ++ d)) && checkmiddle
+        checksides dt (n,ni) = case categorylx dt of {Just (x1, x2) -> x1 == n && x2 == ni; Nothing -> False}
+        checkmiddle = case desigcat of {Just (x1, x2) -> x1 == c; Nothing -> False}
+        newstack = case desigcat of {Just (x1, x2) -> (trytake ci x2) >>= (\s -> Just ([i] ++ s)); Nothing -> Nothing}
+trytake inds froms = if take (length inds) froms == inds then Just (drop (length inds) froms) else Nothing
+
+threeTree t@(Node r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (concat (map show (yieldlx t)))) (map threeTree ts)
+        where cat = case categorylx t of {Just (c,cs) -> show c ++ injbrack cs; Nothing -> "n/a"}
+threeLatex t@(Node r ts) = Node ((texify r) ++ "\\\\\n" ++cat ++ ": " ++ (concat (map texify (yieldlx t)))) (map threeLatex ts)
+        where cat = case categorylx t of {Just (c,cs) -> texify c ++ injbrack cs; Nothing -> "n/a"}
+
+gx1r1 = Branchx S 0 [(A,[])] (S,[0,1]) []
+gx1r2 = Branchx S 0 [(B,[])] (S,[0,2]) []
+gx1r3 = Branchx S 0 [] (T,[]) []
+gx1r4 = Branchx T 1 [] (T,[]) [(A,[])]
+gx1r5 = Branchx T 2 [] (T,[]) [(B,[])]
+gx1r6 = Leafx A ["a"]
+gx1r7 = Leafx B ["b"]
+gx1r8 = Leafx T []
+gx1r9 = Passx S [] U []
+gx1r10 = Passx U [] S []
+
+gx1t1 = Node gx1r1 [
+            Node gx1r6 [],
+            Node gx1r2 [
+                Node gx1r7 [],
+                Node gx1r3 [
+                    Node gx1r5 [
+                        Node gx1r4 [
+                            Node gx1r8 [],
+                            Node gx1r6 []
+                        ],
+                        Node gx1r7 []
+                    ]
+                ]
+            ]
+        ]
+
+gx1t2 = Node gx1r9 [
+            Node gx1r10 [
+                gx1t1
+            ]
+        ]
+
+
