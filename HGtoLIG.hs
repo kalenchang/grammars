@@ -90,6 +90,11 @@ instance (Show nts, Show ts) => Show (LIGtransNT nts ts) where
     show (Nl n) = show n
     show (Tl t) = '!':show t
 
+instance (Texable nts, Texable ts) => Texable (LIGtransNT nts ts) where
+    texify Alpha = "\\ap"
+    texify (Nl n) = texify n
+    texify (Tl t) = "\\inbar{" ++ texify t ++ "}"
+
 -- three kinds of rules in the new LIG
 -- H are rules that come from HG (HC = concat, HW = wrap, HL = lexical)
 -- Pop are rules that pop off the stack (top down)
@@ -249,3 +254,5 @@ hg3t1 = HGT hg3r1 [
                 HGT hg3r6 []
             ]
         ]
+
+
