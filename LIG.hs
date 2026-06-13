@@ -239,7 +239,7 @@ ligtoThreeTree t@(LIT r ts) = Node ((show r) ++ '\n':cat ++ ": " ++ (concat (map
 
 -- ligtoAllLatex :: (Texable nts, Texable ts, Eq nts, Texable ind, Eq ind) => LITree nts ts ind -> Tree String
 ligtoThreeLatex t@(LIT r ts) = Node ((texify r) ++ "\\\\\n" ++ cat ++ ": " ++ (texifySpaces (yieldl t))) (map ligtoThreeLatex ts)
-        where cat = case categoryl t of {Just (cat,stack) -> texify cat ++ texify stack; Nothing -> "n/a"}
+        where cat = case categoryl t of {Just (cat,stack) -> texify cat ++ texifyStack stack; Nothing -> "n/a"}
 
 ligtoTwoTree t@(LIT r ts) = Node ((show r) ++ '\n':cat ) (map ligtoTwoTree ts)
         where cat = case categoryl t of {Just (cat,stack) -> show cat ++ show stack; Nothing -> "n/a"}
@@ -400,6 +400,27 @@ lig4t2 = LIT lig4r6A [
             ]
         ]
 
+-- whom John say who Mary know t saw t
+lig4t3 = LIT lig4r6A [
+            LIT (lig4r10A) [],
+                    LIT lig4r6N [
+                        LIT (lig4r10N) [],
+                        LIT lig4r4 [
+                            LIT (lig4r7 "Mary") [],
+                            LIT lig4r3 [
+                                LIT (lig4r9 "know") [],
+                                LIT lig4r5 [
+                                    LIT lig4r11 [],
+                                    LIT lig4r2 [
+                                        LIT (lig4r8 "saw") [],
+                                        LIT lig4r11 []
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+
 -- > latexTree $ ligtoThreeLatex lig4t2
 
 
@@ -429,7 +450,7 @@ instance (Texable nts, Texable ind) => Texable (LIGXRule nts String ind) where
     texify (Leafx a b) = (texify a) ++ "[] \\ra{} " ++ concat (map texify b)
 
 injbrack x = "[" ++ showTogether x ++ "]"
-injbrackdot x = "[" ++ showTogether x ++ "..]"
+injbrackdot x = "[" ++ showTogether x ++ "\\cdott]"
 
 -- type LIXT nts ts ind = Tree (LIGXRule nts ts ind) deriving (Eq, Show)
 
@@ -462,7 +483,8 @@ threeLatex t@(Node r ts) = Node ((texify r) ++ "\\\\\n" ++cat ++ ": " ++ (concat
 
 gx1r1 = Branchx S 0 [(A,[])] (S,[0,1]) []
 gx1r2 = Branchx S 0 [(B,[])] (S,[0,2]) []
-gx1r3 = Branchx S 0 [] (T,[]) []
+gx1r3 = Branchx S 0 [(U,[3])] (T,[]) []
+gx1r3' = Branchx S 0 [] (T,[]) []
 gx1r4 = Branchx T 1 [] (T,[]) [(A,[])]
 gx1r5 = Branchx T 2 [] (T,[]) [(B,[])]
 gx1r6 = Leafx A ["a"]
@@ -470,12 +492,26 @@ gx1r7 = Leafx B ["b"]
 gx1r8 = Leafx T []
 gx1r9 = Passx S [] U []
 gx1r10 = Passx U [] S []
+gx1r11 = Branchx U 3 [(C,[])] (U,[3,3]) []
+gx1r12 = Branchx U 3 [(C,[])] (U,[]) []
+gx1r13 = Leafx C ["c"]
+gx1r14 = Leafx U []
 
 gx1t1 = Node gx1r1 [
             Node gx1r6 [],
             Node gx1r2 [
                 Node gx1r7 [],
                 Node gx1r3 [
+                    Node gx1r11 [
+                        Node gx1r13 [],
+                        Node gx1r12 [
+                            Node gx1r13 [],
+                            Node gx1r12 [
+                                Node gx1r13 [],
+                                Node gx1r14 []
+                            ]
+                        ]
+                    ],
                     Node gx1r5 [
                         Node gx1r4 [
                             Node gx1r8 [],
@@ -493,4 +529,20 @@ gx1t2 = Node gx1r9 [
             ]
         ]
 
+
+gx1t3 = Node gx1r1 [
+            Node gx1r6 [],
+            Node gx1r2 [
+                Node gx1r7 [],
+                Node gx1r3' [
+                    Node gx1r5 [
+                        Node gx1r4 [
+                            Node gx1r8 [],
+                            Node gx1r6 []
+                        ],
+                        Node gx1r7 []
+                    ]
+                ]
+            ]
+        ]
 
