@@ -495,7 +495,7 @@ hgsided (cat,[]) = NTO (Sng cat False)
 hgsided (cat,[index]) = NTO (Sngi cat False index)
 
 makeBranchhx (Branchx a i b (c,ci) d) sts = HGXR (Trpi a (last (c:sts)) False i) (ConcatO (map hgsided b) (WrapO $ zipWith3 (\x y z -> NTO (Trpi x y False z)) (c:sts) sts ci) (map hgsided d))       
-makeNopophx (Branchx a i b (c,[]) d) = HGXR (Trpi a c False i) (ConcatO (map hgsided b) (NTO $ Trp c c False) (map hgsided d))
+makeNopushhx (Branchx a i b (c,[]) d) = HGXR (Trpi a c False i) (ConcatO (map hgsided b) (LeafO [] []) (map hgsided d))
 makeLeafhx (Leafx a b) = HGXR (Sng a False) (LeafO [] b)
 makeFillhx a b i = HGXR (Sngi a False i) (WrapO [NTO (Trpi a b False i), NTO (Sng b False)])
 makeEmptyhx a = HGXR (Trp a a False) (LeafO [] [])
@@ -526,7 +526,7 @@ lht t@(Node r@(Branchx a i _ _ _) _) = let (PTX lx@(Leafx x _) cont) = petrose t
 
 -- lht' :: (Eq nts, Eq ind) => (Tree (LIGXRule nts ts ind)) -> [Tree (HGXRule (HGTransNT nts ind) ts)]
 lht' EmptyX x = []
-lht' (TCX m@(Branchx a i b (c,[]) d) l dc r) x = (Node (makeNopophx m) (map lht l ++ [Node (makeEmptyhx c) []] ++ map lht r)):(lht' dc x)
+lht' (TCX m@(Branchx a i b (c,[]) d) l dc r) x = (Node (makeNopushhx m) (map lht l ++ map lht r)):(lht' dc x)
 lht' (TCX m@(Branchx a i b (c,ci) d) l dc r) x = let (treelist, rank) = (lht' dc x, length ci) in
     let (lf, lb) = (take rank treelist, drop rank treelist) in 
     (Node (makeBranchhx m (map rtdn lf)) (map lht l ++ lf ++ map lht r)):lb
